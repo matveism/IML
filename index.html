@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>IML Terminal</title>
-
 <style>
 html,body{
   margin:0;height:100%;
@@ -32,7 +31,6 @@ html,body{
 }
 #title{font-size:28px;font-weight:bold;}
 #content{padding:20px;}
-
 input,button{
   width:100%;
   padding:10px;
@@ -58,7 +56,6 @@ button{
 </head>
 
 <body>
-
 <div id="device">
   <div id="header">
     <div id="icon"></div>
@@ -66,7 +63,6 @@ button{
   </div>
 
   <div id="content">
-
     <div id="loginBox">
       <input id="uid" placeholder="UserID">
       <input id="pid" placeholder="PassID" type="password">
@@ -84,18 +80,15 @@ button{
       <input id="answer" placeholder="Your answer">
       <button id="submitBtn">SUBMIT</button>
     </div>
-
   </div>
 </div>
 
 <script>
-const CSV_URL =
-"https://docs.google.com/spreadsheets/d/1ACxwDbnT2mpbwmIzTy_Df8Ev48wHCODFs-rukSVeBro/export?format=csv";
+// === CONFIG ===
+const CSV_URL = "https://script.google.com/macros/s/YOUR_CSV_PROXY_URL/exec"; // Use Apps Script proxy CSV
+const POST_URL = "https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec";
 
-const POST_URL =
-"https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec";
-
-// DOM
+// === DOM ===
 const uidEl = document.getElementById("uid");
 const pidEl = document.getElementById("pid");
 const statusEl = document.getElementById("status");
@@ -108,13 +101,13 @@ const loginBox = document.getElementById("loginBox");
 const infoBox = document.getElementById("infoBox");
 const quizBox = document.getElementById("quizBox");
 
-document.getElementById("loginBtn").addEventListener("click", login);
-document.getElementById("submitBtn").addEventListener("click", submitQuiz);
+const loginBtn = document.getElementById("loginBtn");
+const submitBtn = document.getElementById("submitBtn");
 
 let currentUser = null;
 let correctAnswer = "";
 
-// CSV parser (safe)
+// === CSV PARSER ===
 function parseCSV(text){
   return text.trim().split(/\r?\n/).map(r =>
     r.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)
@@ -122,12 +115,13 @@ function parseCSV(text){
   );
 }
 
+// === LOGIN FUNCTION ===
 async function login(){
   try{
     const res = await fetch(CSV_URL);
     const text = await res.text();
     const rows = parseCSV(text);
-    rows.shift();
+    rows.shift(); // remove header
 
     currentUser = rows.find(r =>
       r[0] === uidEl.value.trim() &&
@@ -139,7 +133,7 @@ async function login(){
       return;
     }
 
-    if(currentUser[2] === "BLOCKED"){
+    if(currentUser[2].toUpperCase() === "BLOCKED"){
       alert("ACCOUNT BLOCKED");
       return;
     }
@@ -154,15 +148,15 @@ async function login(){
     loginBox.classList.add("hidden");
     infoBox.classList.remove("hidden");
 
-    if(correctAnswer){
-      quizBox.classList.remove("hidden");
-    }
+    if(correctAnswer) quizBox.classList.remove("hidden");
+
   }catch(err){
-    alert("LOGIN ERROR");
     console.error(err);
+    alert("LOGIN ERROR: Cannot fetch data");
   }
 }
 
+// === SUBMIT QUIZ ===
 async function submitQuiz(){
   let deltaReversal = 0;
   let deltaPts = 1;
@@ -171,33 +165,42 @@ async function submitQuiz(){
     deltaReversal = 1;
   }
 
-  const res = await fetch(POST_URL,{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      uid: currentUser[0],
-      reversal: deltaReversal,
-      pts: deltaPts
-    })
-  });
+  try{
+    const res = await fetch(POST_URL,{
+      method:"POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({
+        uid: currentUser[0],
+        reversal: deltaReversal,
+        pts: deltaPts
+      })
+    });
 
-  const json = await res.json();
+    const json = await res.json();
 
-  statusEl.textContent = json.status;
-  ptsEl.textContent = json.pts;
-  rateEl.textContent = json.reversal + "%";
+    statusEl.textContent = json.status;
+    ptsEl.textContent = json.pts;
+    rateEl.textContent = json.reversal + "%";
 
-  quizBox.classList.add("hidden");
-  questionEl.textContent = "No active quiz";
+    quizBox.classList.add("hidden");
+    questionEl.textContent = "No active quiz";
 
-  if(json.status === "BLOCKED"){
-    alert("BLOCKED: Reversal > 10%");
-    return;
+    if(json.status.toUpperCase() === "BLOCKED"){
+      alert("BLOCKED: Reversal > 10%");
+      return;
+    }
+
+    alert("Quiz completed");
+
+  }catch(err){
+    console.error(err);
+    alert("ERROR submitting quiz");
   }
-
-  alert("Quiz completed");
 }
-</script>
 
+// === EVENT LISTENERS ===
+loginBtn.addEventListener("click", login);
+submitBtn.addEventListener("click", submitQuiz);
+</script>
 </body>
 </html>
