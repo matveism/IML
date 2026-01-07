@@ -3,102 +3,204 @@
 <head>
 <meta charset="UTF-8">
 <title>IML Terminal</title>
-
 <style>
-html,body{margin:0;height:100%;background:#111;font-family:Tahoma;color:#0f0}
-#device{width:480px;height:800px;margin:auto;border:3px solid #666;background:#000}
-.panel{border:2px inset #555;padding:10px;margin-top:10px}
-input,button,select{width:100%;padding:10px;font-size:16px;margin-top:5px;background:#000;color:#0f0;border:1px solid #555}
-button{background:#063;color:#fff;cursor:pointer}
-.hidden{display:none}
+html,body{margin:0;height:100%;background:#111;font-family:Tahoma;color:#0f0;}
+#device{width:480px;height:800px;margin:auto;border:3px solid #666;background:#000;padding:10px;}
+.panel{border:2px inset #555;padding:10px;margin-top:10px;}
+input,button,select{width:100%;padding:10px;font-size:16px;margin-top:5px;background:#000;color:#0f0;border:1px solid #555;}
+button{background:#063;color:#fff;cursor:pointer;}
+.hidden{display:none;}
+#rewardInfo{margin-top:5px;font-size:14px;color:#0ff;}
 </style>
 </head>
 
 <body>
 <div id="device">
+
+  <!-- LOGIN -->
   <div class="panel" id="loginBox">
     <input id="uid" placeholder="UserID">
     <input id="pid" type="password" placeholder="PassID">
     <button onclick="login()">LOGIN</button>
   </div>
 
+  <!-- USER INFO -->
   <div class="panel hidden" id="infoBox">
     Status: <span id="status"></span><br>
     PTS: <span id="pts"></span><br>
     Reversal: <span id="rev"></span>
   </div>
 
+  <!-- QUIZ -->
   <div class="panel hidden" id="quizBox">
     <div id="q"></div>
     <input id="a" placeholder="Answer">
     <button onclick="submitQuiz()">SUBMIT</button>
   </div>
 
+  <!-- REWARDS -->
   <div class="panel hidden" id="rewardBox">
-    <select id="rewardList"></select>
+    <select id="rewardList" onchange="showRewardInfo()"></select>
     <button onclick="redeem()">REDEEM</button>
     <div id="rewardInfo"></div>
   </div>
+
 </div>
 
 <script>
-const URL = "YOUR_WEB_APP_URL";
-let user, correct;
+const URL = "https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec";
 
-function csv(t){return t.trim().split(/\n/).map(r=>r.split(","));}
+let user = null;
+let correctAnswer = "";
 
+// Simple CSV parser
+function parseCSV(text){
+  return text.trim().split(/\r?\n/).map(r=>r.split(","));
+}
+
+// LOGIN FUNCTION
 async function login(){
-  const r = await fetch(URL);
-  const rows = csv(await r.text()); rows.shift();
-  user = rows.find(x=>x[0]==uid.value && x[1]==pid.value);
-  if(!user||user[2]=="BLOCKED") return alert("DENIED");
+  try{
+    const res = await fetch(URL);
+    const csvText = await res.text();
+    const rows = parseCSV(csvText);
+    rows.shift(); // remove header
 
-  status.textContent=user[2];
-  pts.textContent=user[3];
-  rev.textContent=user[4]+"%";
-  q.textContent=user[5];
-  correct=user[6];
+    const uidVal = document.getElementById("uid").value.trim();
+    const pidVal = document.getElementById("pid").value.trim();
 
-  loginBox.classList.add("hidden");
-  infoBox.classList.remove("hidden");
-  quizBox.classList.remove("hidden");
-  loadRewards();
+    user = rows.find(r => r[0]===uidVal && r[1]===pidVal);
+
+    if(!user){
+      alert("LOGIN FAILED");
+      return;
+    }
+    if(user[2]==="BLOCKED"){
+      alert("ACCOUNT PERMANENTLY BLOCKED");
+      return;
+    }
+
+    document.getElementById("status").textContent = user[2];
+    document.getElementById("pts").textContent = user[3];
+    document.getElementById("rev").textContent = user[4]+"%";
+
+    document.getElementById("q").textContent = user[5] || "No active quiz";
+    correctAnswer = user[6] || "";
+
+    document.getElementById("loginBox").classList.add("hidden");
+    document.getElementById("infoBox").classList.remove("hidden");
+
+    if(correctAnswer){
+      document.getElementById("quizBox").classList.remove("hidden");
+    }
+
+    loadRewards();
+
+  } catch(e){
+    console.error(e);
+    alert("Login error: "+e.message);
+  }
 }
 
+// QUIZ SUBMISSION
 async function submitQuiz(){
-  const ok = a.value.trim()===correct;
-  const body =
-    "uid="+user[0]+
-    "&correct="+(ok?1:0);
+  if(!user) return alert("Login first");
+  const answer = document.getElementById("a").value.trim();
+  const correct = answer===correctAnswer ? "1":"0";
 
-  const r = await fetch(URL,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body});
-  const j = await r.json();
+  const body = "uid="+encodeURIComponent(user[0])+"&correct="+correct;
 
-  status.textContent=j.status;
-  pts.textContent=j.pts;
-  rev.textContent=j.reversal+"%";
-  quizBox.classList.add("hidden");
+  try{
+    const res = await fetch(URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body: body
+    });
+    const jsonResp = await res.json();
+
+    document.getElementById("status").textContent = jsonResp.status;
+    document.getElementById("pts").textContent = jsonResp.pts;
+    document.getElementById("rev").textContent = jsonResp.reversal+"%";
+
+    document.getElementById("quizBox").classList.add("hidden");
+    alert(correct==="1"?"Correct! PTS +1":"Wrong! Reversal +1%");
+  } catch(e){
+    console.error(e);
+    alert("Error submitting quiz: "+e.message);
+  }
 }
 
+// LOAD REWARDS
 async function loadRewards(){
-  const r = await fetch(URL+"?rewards=1");
-  const rows = csv(await r.text()); rows.shift();
-  rewardList.innerHTML="";
-  rows.forEach((x,i)=>{
-    const o=document.createElement("option");
-    o.value=i;
-    o.text=x[1]+" - "+x[2]+" PTS";
-    rewardList.appendChild(o);
-  });
-  rewardBox.classList.remove("hidden");
+  try{
+    const res = await fetch(URL+"?rewards=1");
+    const csvText = await res.text();
+    const rows = parseCSV(csvText);
+    rows.shift(); // remove header
+
+    const sel = document.getElementById("rewardList");
+    sel.innerHTML="";
+    rows.forEach((r,i)=>{
+      const opt = document.createElement("option");
+      opt.value=i;
+      opt.text = r[1]+" - "+r[2]+" PTS";
+      sel.appendChild(opt);
+    });
+    document.getElementById("rewardBox").classList.remove("hidden");
+    showRewardInfo();
+  } catch(e){
+    console.error(e);
+  }
 }
 
+// SHOW SELECTED REWARD INFO
+function showRewardInfo(){
+  const sel = document.getElementById("rewardList");
+  const idx = sel.value;
+  if(idx==="") return;
+  fetch(URL+"?rewards=1").then(r=>r.text()).then(t=>{
+    const rows = parseCSV(t); rows.shift();
+    const r = rows[idx];
+    document.getElementById("rewardInfo").innerHTML =
+      "<b>"+r[1]+"</b><br>Amount: "+r[2]+"<br>Status: "+r[3]+"<br>Note: "+r[4]+
+      "<br><img src='"+r[0]+"' width=50>";
+  });
+}
+
+// REDEEM FUNCTION
 async function redeem(){
-  if(Number(rev.textContent)>=1) return alert("Reversal too high");
-  const idx = rewardList.value;
-  const body="uid="+user[0]+"&reward="+idx;
-  await fetch(URL,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body});
-  alert("Redeem Requested");
+  if(!user) return alert("Login first");
+  const sel = document.getElementById("rewardList");
+  const idx = sel.value;
+  if(idx==="") return alert("Select a reward");
+
+  const body = "uid="+encodeURIComponent(user[0])+"&reward="+encodeURIComponent(idx);
+
+  try{
+    const res = await fetch(URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body: body
+    });
+    const jsonResp = await res.json();
+
+    if(jsonResp.status==="OK"){
+      alert("Redeem request sent successfully");
+    } else if(jsonResp.status==="DENIED"){
+      if(jsonResp.reason==="REVERSAL_TOO_HIGH"){
+        alert("Cannot redeem: Reversal too high. Complete more quizzes to reduce it.");
+      } else if(jsonResp.reason==="ACCOUNT_RESTRICTED"){
+        alert("Cannot redeem: Your account is RESTRICTED due to high Reversal.");
+      } else {
+        alert("Cannot redeem: DENIED by system");
+      }
+    } else {
+      alert("Unexpected response: "+JSON.stringify(jsonResp));
+    }
+  } catch(e){
+    console.error(e);
+    alert("Redeem failed: "+e.message);
+  }
 }
 </script>
 </body>
