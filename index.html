@@ -5,161 +5,100 @@
 <title>IML Terminal</title>
 
 <style>
-html,body{
-  margin:0;height:100%;
-  background:#1a1a1a;
-  font-family:Tahoma;
-  color:#0f0;
-}
-#device{
-  width:480px;height:800px;margin:auto;
-  background:linear-gradient(#3c3c3c,#0f0f0f);
-  border:3px solid #777;
-}
-#header{
-  height:70px;
-  background:linear-gradient(#666,#222);
-  display:flex;
-  align-items:center;
-  padding:10px;
-}
-#icon{
-  width:40px;height:40px;
-  background:linear-gradient(#0ff,#046);
-  border-radius:6px;
-  margin-right:10px;
-}
-#title{font-size:28px;font-weight:bold;color:#fff;}
-#content{padding:20px;}
-
-input,button{
-  width:100%;
-  padding:10px;
-  font-size:18px;
-  margin-top:10px;
-}
-input{
-  background:#000;
-  color:#0f0;
-  border:2px inset #555;
-}
-button{
-  background:linear-gradient(#4caf50,#2e7d32);
-  border:none;
-  color:#fff;
-  cursor:pointer;
-}
-.panel{
-  margin-top:15px;
-  padding:10px;
-  background:#000;
-  border:2px inset #555;
-}
-.hidden{display:none;}
+html,body{margin:0;height:100%;background:#111;font-family:Tahoma;color:#0f0}
+#device{width:480px;height:800px;margin:auto;border:3px solid #666;background:#000}
+.panel{border:2px inset #555;padding:10px;margin-top:10px}
+input,button,select{width:100%;padding:10px;font-size:16px;margin-top:5px;background:#000;color:#0f0;border:1px solid #555}
+button{background:#063;color:#fff;cursor:pointer}
+.hidden{display:none}
 </style>
 </head>
 
 <body>
 <div id="device">
-  <div id="header">
-    <div id="icon"></div>
-    <div id="title">IML TERMINAL</div>
+  <div class="panel" id="loginBox">
+    <input id="uid" placeholder="UserID">
+    <input id="pid" type="password" placeholder="PassID">
+    <button onclick="login()">LOGIN</button>
   </div>
 
-  <div id="content">
-    <div id="loginBox">
-      <input id="uid" placeholder="UserID">
-      <input id="pid" placeholder="PassID" type="password">
-      <button onclick="login()">LOGIN</button>
-    </div>
+  <div class="panel hidden" id="infoBox">
+    Status: <span id="status"></span><br>
+    PTS: <span id="pts"></span><br>
+    Reversal: <span id="rev"></span>
+  </div>
 
-    <div id="infoBox" class="panel hidden">
-      Status: <span id="status"></span><br>
-      PTS: <span id="pts"></span><br>
-      Reversal Rate: <span id="rate"></span>
-    </div>
+  <div class="panel hidden" id="quizBox">
+    <div id="q"></div>
+    <input id="a" placeholder="Answer">
+    <button onclick="submitQuiz()">SUBMIT</button>
+  </div>
 
-    <div id="quizBox" class="panel hidden">
-      <div id="question"></div>
-      <input id="answer" placeholder="Your answer">
-      <button onclick="submitQuiz()">SUBMIT</button>
-    </div>
+  <div class="panel hidden" id="rewardBox">
+    <select id="rewardList"></select>
+    <button onclick="redeem()">REDEEM</button>
+    <div id="rewardInfo"></div>
   </div>
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec";
+const URL = "YOUR_WEB_APP_URL";
+let user, correct;
 
-let currentUser = null;
-let correctAnswer = "";
-
-function parseCSV(text){
-  return text.trim().split(/\r?\n/).map(r=>r.split(","));
-}
+function csv(t){return t.trim().split(/\n/).map(r=>r.split(","));}
 
 async function login(){
-  try{
-    const res = await fetch(WEB_APP_URL);
-    const csv = await res.text();
-    const rows = parseCSV(csv);
-    rows.shift();
+  const r = await fetch(URL);
+  const rows = csv(await r.text()); rows.shift();
+  user = rows.find(x=>x[0]==uid.value && x[1]==pid.value);
+  if(!user||user[2]=="BLOCKED") return alert("DENIED");
 
-    const uid = document.getElementById("uid").value.trim();
-    const pid = document.getElementById("pid").value.trim();
+  status.textContent=user[2];
+  pts.textContent=user[3];
+  rev.textContent=user[4]+"%";
+  q.textContent=user[5];
+  correct=user[6];
 
-    currentUser = rows.find(r => r[0]===uid && r[1]===pid);
-    if(!currentUser){ alert("LOGIN FAILED"); return; }
-    if(currentUser[2]==="BLOCKED"){ alert("ACCOUNT BLOCKED"); return; }
-
-    document.getElementById("status").textContent = currentUser[2];
-    document.getElementById("pts").textContent = currentUser[3];
-    document.getElementById("rate").textContent = currentUser[4]+"%";
-    document.getElementById("question").textContent = currentUser[5];
-    correctAnswer = currentUser[6];
-
-    document.getElementById("loginBox").classList.add("hidden");
-    document.getElementById("infoBox").classList.remove("hidden");
-    document.getElementById("quizBox").classList.remove("hidden");
-  }catch(e){
-    alert("LOGIN ERROR");
-    console.error(e);
-  }
+  loginBox.classList.add("hidden");
+  infoBox.classList.remove("hidden");
+  quizBox.classList.remove("hidden");
+  loadRewards();
 }
 
 async function submitQuiz(){
-  const answer = document.getElementById("answer").value.trim();
-  const reversal = answer!==correctAnswer ? 1 : 0;
-
+  const ok = a.value.trim()===correct;
   const body =
-    "uid="+encodeURIComponent(currentUser[0])+
-    "&pts=1"+
-    "&reversal="+reversal+
-    "&answer="+encodeURIComponent(answer);
+    "uid="+user[0]+
+    "&correct="+(ok?1:0);
 
-  try{
-    const res = await fetch(WEB_APP_URL,{
-      method:"POST",
-      headers:{ "Content-Type":"application/x-www-form-urlencoded" },
-      body: body
-    });
+  const r = await fetch(URL,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body});
+  const j = await r.json();
 
-    const json = await res.json();
+  status.textContent=j.status;
+  pts.textContent=j.pts;
+  rev.textContent=j.reversal+"%";
+  quizBox.classList.add("hidden");
+}
 
-    document.getElementById("status").textContent = json.status;
-    document.getElementById("pts").textContent = json.pts;
-    document.getElementById("rate").textContent = json.reversal+"%";
+async function loadRewards(){
+  const r = await fetch(URL+"?rewards=1");
+  const rows = csv(await r.text()); rows.shift();
+  rewardList.innerHTML="";
+  rows.forEach((x,i)=>{
+    const o=document.createElement("option");
+    o.value=i;
+    o.text=x[1]+" - "+x[2]+" PTS";
+    rewardList.appendChild(o);
+  });
+  rewardBox.classList.remove("hidden");
+}
 
-    document.getElementById("quizBox").classList.add("hidden");
-
-    if(json.status==="BLOCKED"){
-      alert("BLOCKED: Reversal > 10%");
-    }else{
-      alert("Quiz submitted");
-    }
-  }catch(e){
-    alert("ERROR submitting quiz");
-    console.error(e);
-  }
+async function redeem(){
+  if(Number(rev.textContent)>=1) return alert("Reversal too high");
+  const idx = rewardList.value;
+  const body="uid="+user[0]+"&reward="+idx;
+  await fetch(URL,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body});
+  alert("Redeem Requested");
 }
 </script>
 </body>
