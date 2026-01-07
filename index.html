@@ -32,6 +32,7 @@ html,body{
 }
 #title{font-size:28px;font-weight:bold;}
 #content{padding:20px;}
+
 input,button{
   width:100%;
   padding:10px;
@@ -69,7 +70,7 @@ button{
     <div id="loginBox">
       <input id="uid" placeholder="UserID">
       <input id="pid" placeholder="PassID" type="password">
-      <button onclick="login()">LOGIN</button>
+      <button id="loginBtn">LOGIN</button>
     </div>
 
     <div id="infoBox" class="panel hidden">
@@ -81,7 +82,7 @@ button{
     <div id="quizBox" class="panel hidden">
       <div id="question"></div>
       <input id="answer" placeholder="Your answer">
-      <button onclick="submitQuiz()">SUBMIT</button>
+      <button id="submitBtn">SUBMIT</button>
     </div>
 
   </div>
@@ -94,6 +95,7 @@ const CSV_URL =
 const POST_URL =
 "https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec";
 
+// DOM
 const uidEl = document.getElementById("uid");
 const pidEl = document.getElementById("pid");
 const statusEl = document.getElementById("status");
@@ -106,52 +108,59 @@ const loginBox = document.getElementById("loginBox");
 const infoBox = document.getElementById("infoBox");
 const quizBox = document.getElementById("quizBox");
 
-document.getElementById("loginBtn").onclick = login;
-document.getElementById("submitBtn").onclick = submitQuiz;
+document.getElementById("loginBtn").addEventListener("click", login);
+document.getElementById("submitBtn").addEventListener("click", submitQuiz);
 
 let currentUser = null;
 let correctAnswer = "";
-let reversalRate = 0;
 
+// CSV parser (safe)
 function parseCSV(text){
   return text.trim().split(/\r?\n/).map(r =>
     r.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)
-     .map(v => v.replace(/^"|"$/g,""))
+     .map(v => v.replace(/^"|"$/g,"").trim())
   );
 }
 
 async function login(){
-  const res = await fetch(CSV_URL);
-  const text = await res.text();
-  const rows = parseCSV(text);
-  rows.shift();
+  try{
+    const res = await fetch(CSV_URL);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    rows.shift();
 
-  currentUser = rows.find(r =>
-    r[0] === uidEl.value.trim() &&
-    r[1] === pidEl.value.trim()
-  );
+    currentUser = rows.find(r =>
+      r[0] === uidEl.value.trim() &&
+      r[1] === pidEl.value.trim()
+    );
 
-  if(!currentUser){
-    alert("LOGIN FAILED");
-    return;
+    if(!currentUser){
+      alert("LOGIN FAILED");
+      return;
+    }
+
+    if(currentUser[2] === "BLOCKED"){
+      alert("ACCOUNT BLOCKED");
+      return;
+    }
+
+    statusEl.textContent = currentUser[2];
+    ptsEl.textContent = currentUser[3];
+    rateEl.textContent = (Number(currentUser[4]) || 0) + "%";
+
+    questionEl.textContent = currentUser[5] || "No quiz";
+    correctAnswer = currentUser[6] || "";
+
+    loginBox.classList.add("hidden");
+    infoBox.classList.remove("hidden");
+
+    if(correctAnswer){
+      quizBox.classList.remove("hidden");
+    }
+  }catch(err){
+    alert("LOGIN ERROR");
+    console.error(err);
   }
-
-  statusEl.textContent = currentUser[2];
-  ptsEl.textContent = currentUser[3];
-  reversalRate = Number(currentUser[4]) || 0;
-  rateEl.textContent = reversalRate + "%";
-
-  if(currentUser[2] === "BLOCKED"){
-    alert("ACCOUNT BLOCKED");
-    return;
-  }
-
-  questionEl.textContent = currentUser[5];
-  correctAnswer = currentUser[6];
-
-  loginBox.classList.add("hidden");
-  infoBox.classList.remove("hidden");
-  quizBox.classList.remove("hidden");
 }
 
 async function submitQuiz(){
@@ -164,7 +173,8 @@ async function submitQuiz(){
 
   const res = await fetch(POST_URL,{
     method:"POST",
-    body:JSON.stringify({
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
       uid: currentUser[0],
       reversal: deltaReversal,
       pts: deltaPts
@@ -177,18 +187,17 @@ async function submitQuiz(){
   ptsEl.textContent = json.pts;
   rateEl.textContent = json.reversal + "%";
 
+  quizBox.classList.add("hidden");
+  questionEl.textContent = "No active quiz";
+
   if(json.status === "BLOCKED"){
-    alert("You have been BLOCKED (Reversal > 10%)");
-    quizBox.classList.add("hidden");
+    alert("BLOCKED: Reversal > 10%");
     return;
   }
 
-  quizBox.classList.add("hidden");
-  questionEl.textContent = "No active quiz";
   alert("Quiz completed");
 }
 </script>
-
 
 </body>
 </html>
