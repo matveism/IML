@@ -91,36 +91,62 @@ button{
 const CSV_URL =
 "https://docs.google.com/spreadsheets/d/1ACxwDbnT2mpbwmIzTy_Df8Ev48wHCODFs-rukSVeBro/export?format=csv";
 
+const POST_URL =
+"https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec";
+
+const uidEl = document.getElementById("uid");
+const pidEl = document.getElementById("pid");
+const statusEl = document.getElementById("status");
+const ptsEl = document.getElementById("pts");
+const rateEl = document.getElementById("rate");
+const questionEl = document.getElementById("question");
+const answerEl = document.getElementById("answer");
+
+const loginBox = document.getElementById("loginBox");
+const infoBox = document.getElementById("infoBox");
+const quizBox = document.getElementById("quizBox");
+
+document.getElementById("loginBtn").onclick = login;
+document.getElementById("submitBtn").onclick = submitQuiz;
+
 let currentUser = null;
 let correctAnswer = "";
 let reversalRate = 0;
 
-async function login(){
-  const u = uid.value.trim();
-  const p = pid.value.trim();
+function parseCSV(text){
+  return text.trim().split(/\r?\n/).map(r =>
+    r.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)
+     .map(v => v.replace(/^"|"$/g,""))
+  );
+}
 
+async function login(){
   const res = await fetch(CSV_URL);
   const text = await res.text();
+  const rows = parseCSV(text);
+  rows.shift();
 
-  const rows = text
-    .trim()
-    .split(/\r?\n/)
-    .map(r => r.split(",").map(v => v.replace(/^"|"$/g,"").trim()));
-
-  rows.shift(); // remove header
-
-  currentUser = rows.find(r => r[0]===u && r[1]===p);
+  currentUser = rows.find(r =>
+    r[0] === uidEl.value.trim() &&
+    r[1] === pidEl.value.trim()
+  );
 
   if(!currentUser){
     alert("LOGIN FAILED");
     return;
   }
 
-  status.textContent = currentUser[2];
-  pts.textContent = currentUser[3];
-  rate.textContent = "0%";
+  statusEl.textContent = currentUser[2];
+  ptsEl.textContent = currentUser[3];
+  reversalRate = Number(currentUser[4]) || 0;
+  rateEl.textContent = reversalRate + "%";
 
-  question.textContent = currentUser[5];
+  if(currentUser[2] === "BLOCKED"){
+    alert("ACCOUNT BLOCKED");
+    return;
+  }
+
+  questionEl.textContent = currentUser[5];
   correctAnswer = currentUser[6];
 
   loginBox.classList.add("hidden");
@@ -128,24 +154,41 @@ async function login(){
   quizBox.classList.remove("hidden");
 }
 
-function submitQuiz(){
-  const a = answer.value.trim();
-  if(a !== correctAnswer){
-    reversalRate++;
-    rate.textContent = reversalRate + "%";
+async function submitQuiz(){
+  let deltaReversal = 0;
+  let deltaPts = 1;
+
+  if(answerEl.value.trim() !== correctAnswer){
+    deltaReversal = 1;
   }
 
-  // clear quiz for this user (session)
-  currentUser[5] = "";
-  currentUser[6] = "";
-  currentUser[7] = "";
+  const res = await fetch(POST_URL,{
+    method:"POST",
+    body:JSON.stringify({
+      uid: currentUser[0],
+      reversal: deltaReversal,
+      pts: deltaPts
+    })
+  });
 
-  question.textContent = "No active quiz";
+  const json = await res.json();
+
+  statusEl.textContent = json.status;
+  ptsEl.textContent = json.pts;
+  rateEl.textContent = json.reversal + "%";
+
+  if(json.status === "BLOCKED"){
+    alert("You have been BLOCKED (Reversal > 10%)");
+    quizBox.classList.add("hidden");
+    return;
+  }
+
   quizBox.classList.add("hidden");
-
+  questionEl.textContent = "No active quiz";
   alert("Quiz completed");
 }
 </script>
+
 
 </body>
 </html>
