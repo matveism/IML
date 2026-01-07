@@ -44,8 +44,7 @@ button{background:linear-gradient(#4caf50,#2e7d32);border:none;color:#fff;}
 </div>
 
 <script>
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTnlkLXkdJOBu9AMVebc6I-UOl2G1HtuFDPphAD4YL_3nLpjwOuVrLKbF4gjTNeMJ1ixiKr2W-3kd2b/pub?gid=0&single=true&output=csv"; // Apps Script URL here
-const POST_URL = "https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec"; // Same URL works for POST
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec"; // Apps Script URL
 
 const uidEl = document.getElementById("uid");
 const pidEl = document.getElementById("pid");
@@ -64,17 +63,15 @@ const submitBtn = document.getElementById("submitBtn");
 let currentUser = null;
 let correctAnswer = "";
 
-// CSV parser
 function parseCSV(text){
   return text.trim().split(/\r?\n/).map(r =>
     r.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g).map(v=>v.replace(/^"|"$/g,"").trim())
   );
 }
 
-// LOGIN
 async function login(){
   try{
-    const res = await fetch(CSV_URL);
+    const res = await fetch(WEB_APP_URL);
     const text = await res.text();
     const rows = parseCSV(text);
     rows.shift();
@@ -100,13 +97,12 @@ async function login(){
   }
 }
 
-// SUBMIT QUIZ
 async function submitQuiz(){
   const deltaReversal = (answerEl.value.trim()!==correctAnswer)?1:0;
   const deltaPts = 1;
 
   try{
-    const res = await fetch(POST_URL,{
+    const res = await fetch(WEB_APP_URL,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
@@ -116,8 +112,8 @@ async function submitQuiz(){
         answer: answerEl.value.trim()
       })
     });
-    const json = await res.json();
 
+    const json = await res.json();
     statusEl.textContent = json.status;
     ptsEl.textContent = json.pts;
     rateEl.textContent = json.reversal+"%";
@@ -131,9 +127,10 @@ async function submitQuiz(){
     }
 
     alert("Quiz completed");
+
   }catch(err){
     console.error(err);
-    alert("ERROR submitting quiz");
+    alert("ERROR submitting quiz: "+err.message);
   }
 }
 
