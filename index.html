@@ -3,141 +3,164 @@
 <head>
 <meta charset="UTF-8">
 <title>IML Terminal</title>
+
 <style>
-html,body{margin:0;height:100%;background:#1a1a1a;font-family:Tahoma;color:#fff;}
-#device{width:480px;height:800px;margin:auto;background:linear-gradient(#3c3c3c,#0f0f0f);border:3px solid #777;}
-#header{height:70px;background:linear-gradient(#666,#222);display:flex;align-items:center;padding:10px;}
-#icon{width:40px;height:40px;background:linear-gradient(#0ff,#046);border-radius:6px;margin-right:10px;}
-#title{font-size:28px;font-weight:bold;}
+html,body{
+  margin:0;height:100%;
+  background:#1a1a1a;
+  font-family:Tahoma;
+  color:#0f0;
+}
+#device{
+  width:480px;height:800px;margin:auto;
+  background:linear-gradient(#3c3c3c,#0f0f0f);
+  border:3px solid #777;
+}
+#header{
+  height:70px;
+  background:linear-gradient(#666,#222);
+  display:flex;
+  align-items:center;
+  padding:10px;
+}
+#icon{
+  width:40px;height:40px;
+  background:linear-gradient(#0ff,#046);
+  border-radius:6px;
+  margin-right:10px;
+}
+#title{font-size:28px;font-weight:bold;color:#fff;}
 #content{padding:20px;}
-input,button{width:100%;padding:10px;font-size:18px;margin-top:10px;}
-input{background:#000;color:#0f0;border:2px inset #555;}
-button{background:linear-gradient(#4caf50,#2e7d32);border:none;color:#fff;}
-.panel{margin-top:15px;padding:10px;background:#000;border:2px inset #555;}
+
+input,button{
+  width:100%;
+  padding:10px;
+  font-size:18px;
+  margin-top:10px;
+}
+input{
+  background:#000;
+  color:#0f0;
+  border:2px inset #555;
+}
+button{
+  background:linear-gradient(#4caf50,#2e7d32);
+  border:none;
+  color:#fff;
+  cursor:pointer;
+}
+.panel{
+  margin-top:15px;
+  padding:10px;
+  background:#000;
+  border:2px inset #555;
+}
 .hidden{display:none;}
 </style>
 </head>
-<body>
 
+<body>
 <div id="device">
   <div id="header">
     <div id="icon"></div>
-    <div id="title">IML</div>
+    <div id="title">IML TERMINAL</div>
   </div>
+
   <div id="content">
     <div id="loginBox">
       <input id="uid" placeholder="UserID">
       <input id="pid" placeholder="PassID" type="password">
-      <button id="loginBtn">LOGIN</button>
+      <button onclick="login()">LOGIN</button>
     </div>
+
     <div id="infoBox" class="panel hidden">
       Status: <span id="status"></span><br>
       PTS: <span id="pts"></span><br>
-      Reversal Rate: <span id="rate">0%</span>
+      Reversal Rate: <span id="rate"></span>
     </div>
+
     <div id="quizBox" class="panel hidden">
       <div id="question"></div>
       <input id="answer" placeholder="Your answer">
-      <button id="submitBtn">SUBMIT</button>
+      <button onclick="submitQuiz()">SUBMIT</button>
     </div>
   </div>
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec"; // Replace with your deployed Apps Script URL
-
-const uidEl = document.getElementById("uid");
-const pidEl = document.getElementById("pid");
-const statusEl = document.getElementById("status");
-const ptsEl = document.getElementById("pts");
-const rateEl = document.getElementById("rate");
-const questionEl = document.getElementById("question");
-const answerEl = document.getElementById("answer");
-
-const loginBox = document.getElementById("loginBox");
-const infoBox = document.getElementById("infoBox");
-const quizBox = document.getElementById("quizBox");
-const loginBtn = document.getElementById("loginBtn");
-const submitBtn = document.getElementById("submitBtn");
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec";
 
 let currentUser = null;
 let correctAnswer = "";
 
 function parseCSV(text){
-  return text.trim().split(/\r?\n/).map(r =>
-    r.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g).map(v=>v.replace(/^"|"$/g,"").trim())
-  );
+  return text.trim().split(/\r?\n/).map(r=>r.split(","));
 }
 
 async function login(){
   try{
     const res = await fetch(WEB_APP_URL);
-    const text = await res.text();
-    const rows = parseCSV(text);
+    const csv = await res.text();
+    const rows = parseCSV(csv);
     rows.shift();
 
-    currentUser = rows.find(r=>r[0]===uidEl.value.trim() && r[1]===pidEl.value.trim());
+    const uid = document.getElementById("uid").value.trim();
+    const pid = document.getElementById("pid").value.trim();
+
+    currentUser = rows.find(r => r[0]===uid && r[1]===pid);
     if(!currentUser){ alert("LOGIN FAILED"); return; }
-    if(currentUser[2].toUpperCase()==="BLOCKED"){ alert("ACCOUNT BLOCKED"); return; }
+    if(currentUser[2]==="BLOCKED"){ alert("ACCOUNT BLOCKED"); return; }
 
-    statusEl.textContent = currentUser[2];
-    ptsEl.textContent = currentUser[3];
-    rateEl.textContent = (Number(currentUser[4])||0)+"%";
+    document.getElementById("status").textContent = currentUser[2];
+    document.getElementById("pts").textContent = currentUser[3];
+    document.getElementById("rate").textContent = currentUser[4]+"%";
+    document.getElementById("question").textContent = currentUser[5];
+    correctAnswer = currentUser[6];
 
-    questionEl.textContent = currentUser[5]||"No quiz";
-    correctAnswer = currentUser[6]||"";
-
-    loginBox.classList.add("hidden");
-    infoBox.classList.remove("hidden");
-    if(correctAnswer) quizBox.classList.remove("hidden");
-
-  }catch(err){
-    console.error(err);
-    alert("LOGIN ERROR: Cannot fetch data");
+    document.getElementById("loginBox").classList.add("hidden");
+    document.getElementById("infoBox").classList.remove("hidden");
+    document.getElementById("quizBox").classList.remove("hidden");
+  }catch(e){
+    alert("LOGIN ERROR");
+    console.error(e);
   }
 }
 
 async function submitQuiz(){
-  const deltaReversal = (answerEl.value.trim()!==correctAnswer)?1:0;
-  const deltaPts = 1;
+  const answer = document.getElementById("answer").value.trim();
+  const reversal = answer!==correctAnswer ? 1 : 0;
+
+  const body =
+    "uid="+encodeURIComponent(currentUser[0])+
+    "&pts=1"+
+    "&reversal="+reversal+
+    "&answer="+encodeURIComponent(answer);
 
   try{
     const res = await fetch(WEB_APP_URL,{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        uid: currentUser[0],
-        pts: deltaPts,
-        reversal: deltaReversal,
-        answer: answerEl.value.trim()
-      })
+      headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+      body: body
     });
 
     const json = await res.json();
-    statusEl.textContent = json.status;
-    ptsEl.textContent = json.pts;
-    rateEl.textContent = json.reversal+"%";
 
-    quizBox.classList.add("hidden");
-    questionEl.textContent = "No active quiz";
+    document.getElementById("status").textContent = json.status;
+    document.getElementById("pts").textContent = json.pts;
+    document.getElementById("rate").textContent = json.reversal+"%";
 
-    if(json.status.toUpperCase()==="BLOCKED"){
+    document.getElementById("quizBox").classList.add("hidden");
+
+    if(json.status==="BLOCKED"){
       alert("BLOCKED: Reversal > 10%");
-      return;
+    }else{
+      alert("Quiz submitted");
     }
-
-    alert("Quiz completed");
-
-  }catch(err){
-    console.error(err);
-    alert("ERROR submitting quiz: "+err.message);
+  }catch(e){
+    alert("ERROR submitting quiz");
+    console.error(e);
   }
 }
-
-loginBtn.addEventListener("click", login);
-submitBtn.addEventListener("click", submitQuiz);
 </script>
-
 </body>
 </html>
-
