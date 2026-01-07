@@ -1,207 +1,295 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>IML Terminal</title>
+
+<meta name="viewport"
+content="width=device-width,height=device-height,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
+
+<title>IML Secure Terminal</title>
+
 <style>
-html,body{margin:0;height:100%;background:#111;font-family:Tahoma;color:#0f0;}
-#device{width:480px;height:800px;margin:auto;border:3px solid #666;background:#000;padding:10px;}
-.panel{border:2px inset #555;padding:10px;margin-top:10px;}
-input,button,select{width:100%;padding:10px;font-size:16px;margin-top:5px;background:#000;color:#0f0;border:1px solid #555;}
-button{background:#063;color:#fff;cursor:pointer;}
-.hidden{display:none;}
-#rewardInfo{margin-top:5px;font-size:14px;color:#0ff;}
+/* ===== RESET ===== */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  margin:0;height:100%;overflow:hidden;
+  font-family:Inter,Segoe UI,Tahoma,Arial;
+  background:linear-gradient(180deg,#0a1a2f,#0f2748);
+  color:#eaf1ff;
+}
+body{touch-action:none}
+
+/* ===== LOCK ===== */
+#lock{
+  position:fixed;inset:0;
+  background:#000;
+  color:#ff3b3b;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:22px;
+  font-weight:bold;
+  z-index:9999;
+}
+
+/* ===== APP ===== */
+#app{
+  position:fixed;inset:0;
+  display:flex;flex-direction:column;
+}
+
+/* ===== HEADER ===== */
+#top{
+  height:56px;
+  background:linear-gradient(90deg,#102c55,#163b73);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+  font-weight:600;
+  letter-spacing:.5px;
+}
+
+/* ===== PANELS ===== */
+.panel{
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:14px;
+  padding:14px;
+  margin:10px;
+  backdrop-filter:blur(6px);
+}
+
+/* ===== DASH ===== */
+#dash{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+}
+.tile{
+  background:linear-gradient(180deg,#14345f,#0f2a4c);
+  border-radius:12px;
+  padding:12px;
+  text-align:center;
+}
+.tile span{font-size:12px;opacity:.7}
+.tile b{font-size:22px}
+
+/* ===== PROGRESS ===== */
+#barWrap{
+  margin-top:10px;
+  height:12px;
+  background:#08182c;
+  border-radius:20px;
+  overflow:hidden;
+}
+#bar{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,#00c6ff,#0072ff);
+}
+
+/* ===== INPUTS ===== */
+input,button{
+  width:100%;
+  padding:14px;
+  font-size:15px;
+  border-radius:12px;
+  border:none;
+}
+input{
+  background:#08182c;
+  color:#fff;
+}
+button{
+  background:linear-gradient(90deg,#1f6bff,#00b4ff);
+  color:#fff;
+  font-weight:600;
+}
+
+/* ===== QUIZ ===== */
+#question{
+  padding:12px;
+  background:#08182c;
+  border-radius:10px;
+  margin-bottom:8px;
+}
+
+/* ===== CASHOUT CARDS ===== */
+#cards{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.card{
+  background:linear-gradient(180deg,#133a6f,#0d2a52);
+  border-radius:14px;
+  padding:12px;
+  text-align:center;
+  cursor:pointer;
+}
+.card img{height:32px;margin-bottom:6px}
+.card.active{outline:3px solid #00b4ff}
+
+/* ===== HISTORY ===== */
+#history div{
+  background:#08182c;
+  padding:10px;
+  border-radius:10px;
+  margin-top:6px;
+  font-size:13px;
+}
+.pending{color:#ffd166}
+.approved{color:#06d6a0}
+.denied{color:#ef476f}
+
+.hidden{display:none}
 </style>
 </head>
 
 <body>
-<div id="device">
+
+<div id="lock">SECURITY LOCKED</div>
+
+<div id="app">
+  <div id="top">
+    <div>IML SECURE</div>
+    <div>LIVE</div>
+  </div>
 
   <!-- LOGIN -->
   <div class="panel" id="loginBox">
-    <input id="uid" placeholder="UserID">
-    <input id="pid" type="password" placeholder="PassID">
+    <input id="uid" placeholder="User ID">
+    <input id="pid" type="password" placeholder="Pass ID">
     <button onclick="login()">LOGIN</button>
   </div>
 
-  <!-- USER INFO -->
-  <div class="panel hidden" id="infoBox">
-    Status: <span id="status"></span><br>
-    PTS: <span id="pts"></span><br>
-    Reversal: <span id="rev"></span>
+  <!-- DASH -->
+  <div class="panel hidden" id="dashBox">
+    <div id="dash">
+      <div class="tile"><span>Status</span><b id="st">—</b></div>
+      <div class="tile"><span>PTS</span><b id="pt">0</b></div>
+      <div class="tile"><span>REV%</span><b id="rv">0</b></div>
+    </div>
+    <div id="barWrap"><div id="bar"></div></div>
   </div>
 
   <!-- QUIZ -->
   <div class="panel hidden" id="quizBox">
-    <div id="q"></div>
-    <input id="a" placeholder="Answer">
+    <div id="question"></div>
+    <input id="answer" placeholder="Your answer">
     <button onclick="submitQuiz()">SUBMIT</button>
   </div>
 
-  <!-- REWARDS -->
-  <div class="panel hidden" id="rewardBox">
-    <select id="rewardList" onchange="showRewardInfo()"></select>
-    <button onclick="redeem()">REDEEM</button>
-    <div id="rewardInfo"></div>
+  <!-- CASHOUT -->
+  <div class="panel hidden" id="cashoutBox">
+    <div id="cards"></div>
+    <button onclick="redeem()">REQUEST CASHOUT</button>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="panel hidden" id="historyBox">
+    <b>Cashout History</b>
+    <div id="history"></div>
   </div>
 
 </div>
 
 <script>
-const URL = "https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec";
+/* ===== CONFIG ===== */
+const URL="https://script.google.com/macros/s/AKfycbwC-ZLvf0u5sC50xSFJlt0hZqO3jN7MCCNtX3ewuA0QynuG6Ld-qsk54DLBvmLqtKlk/exec";
+let user=null,answerKey="",selectedReward=null;
 
-let user = null;
-let correctAnswer = "";
+/* ===== DEVTOOLS LOCK ===== */
+setInterval(()=>{
+  if(window.outerWidth-window.innerWidth>160||window.outerHeight-window.innerHeight>160){
+    lock.style.display="flex";
+  }
+},600);
 
-// Simple CSV parser
-function parseCSV(text){
-  return text.trim().split(/\r?\n/).map(r=>r.split(","));
+/* ===== SESSION ===== */
+function save(){localStorage.iml=JSON.stringify({user,answerKey})}
+function restore(){
+  if(localStorage.iml){
+    const s=JSON.parse(localStorage.iml);
+    user=s.user;answerKey=s.answerKey;
+    if(user) showUI();
+  }
 }
 
-// LOGIN FUNCTION
+/* ===== LOGIN ===== */
 async function login(){
-  try{
-    const res = await fetch(URL);
-    const csvText = await res.text();
-    const rows = parseCSV(csvText);
-    rows.shift(); // remove header
+  const r=await fetch(URL);
+  const rows=(await r.text()).trim().split("\n").slice(1).map(x=>x.split(","));
+  user=rows.find(x=>x[0]===uid.value&&x[1]===pid.value);
+  if(!user||user[2]==="BLOCKED")return alert("DENIED");
+  answerKey=user[6]||"";
+  showUI();save();loadRewards();loadHistory();
+}
 
-    const uidVal = document.getElementById("uid").value.trim();
-    const pidVal = document.getElementById("pid").value.trim();
-
-    user = rows.find(r => r[0]===uidVal && r[1]===pidVal);
-
-    if(!user){
-      alert("LOGIN FAILED");
-      return;
-    }
-    if(user[2]==="BLOCKED"){
-      alert("ACCOUNT PERMANENTLY BLOCKED");
-      return;
-    }
-
-    document.getElementById("status").textContent = user[2];
-    document.getElementById("pts").textContent = user[3];
-    document.getElementById("rev").textContent = user[4]+"%";
-
-    document.getElementById("q").textContent = user[5] || "No active quiz";
-    correctAnswer = user[6] || "";
-
-    document.getElementById("loginBox").classList.add("hidden");
-    document.getElementById("infoBox").classList.remove("hidden");
-
-    if(correctAnswer){
-      document.getElementById("quizBox").classList.remove("hidden");
-    }
-
-    loadRewards();
-
-  } catch(e){
-    console.error(e);
-    alert("Login error: "+e.message);
+/* ===== UI ===== */
+function showUI(){
+  loginBox.classList.add("hidden");
+  dashBox.classList.remove("hidden");
+  cashoutBox.classList.remove("hidden");
+  historyBox.classList.remove("hidden");
+  st.textContent=user[2];
+  pt.textContent=user[3];
+  rv.textContent=user[4];
+  bar.style.width=(1-(user[4]%1))*100+"%";
+  if(answerKey){
+    quizBox.classList.remove("hidden");
+    question.textContent=user[5];
   }
 }
 
-// QUIZ SUBMISSION
+/* ===== QUIZ ===== */
 async function submitQuiz(){
-  if(!user) return alert("Login first");
-  const answer = document.getElementById("a").value.trim();
-  const correct = answer===correctAnswer ? "1":"0";
-
-  const body = "uid="+encodeURIComponent(user[0])+"&correct="+correct;
-
-  try{
-    const res = await fetch(URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/x-www-form-urlencoded"},
-      body: body
-    });
-    const jsonResp = await res.json();
-
-    document.getElementById("status").textContent = jsonResp.status;
-    document.getElementById("pts").textContent = jsonResp.pts;
-    document.getElementById("rev").textContent = jsonResp.reversal+"%";
-
-    document.getElementById("quizBox").classList.add("hidden");
-    alert(correct==="1"?"Correct! PTS +1":"Wrong! Reversal +1%");
-  } catch(e){
-    console.error(e);
-    alert("Error submitting quiz: "+e.message);
-  }
+  const ok=answer.value.trim()===answerKey?1:0;
+  const r=await fetch(URL,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"uid="+user[0]+"&correct="+ok});
+  const j=await r.json();
+  pt.textContent=j.pts;
+  rv.textContent=j.reversal;
+  quizBox.classList.add("hidden");
+  answerKey="";save();
 }
 
-// LOAD REWARDS
+/* ===== REWARDS ===== */
 async function loadRewards(){
-  try{
-    const res = await fetch(URL+"?rewards=1");
-    const csvText = await res.text();
-    const rows = parseCSV(csvText);
-    rows.shift(); // remove header
-
-    const sel = document.getElementById("rewardList");
-    sel.innerHTML="";
-    rows.forEach((r,i)=>{
-      const opt = document.createElement("option");
-      opt.value=i;
-      opt.text = r[1]+" - "+r[2]+" PTS";
-      sel.appendChild(opt);
-    });
-    document.getElementById("rewardBox").classList.remove("hidden");
-    showRewardInfo();
-  } catch(e){
-    console.error(e);
-  }
-}
-
-// SHOW SELECTED REWARD INFO
-function showRewardInfo(){
-  const sel = document.getElementById("rewardList");
-  const idx = sel.value;
-  if(idx==="") return;
-  fetch(URL+"?rewards=1").then(r=>r.text()).then(t=>{
-    const rows = parseCSV(t); rows.shift();
-    const r = rows[idx];
-    document.getElementById("rewardInfo").innerHTML =
-      "<b>"+r[1]+"</b><br>Amount: "+r[2]+"<br>Status: "+r[3]+"<br>Note: "+r[4]+
-      "<br><img src='"+r[0]+"' width=50>";
+  const r=await fetch(URL+"?rewards=1");
+  const rows=(await r.text()).trim().split("\n").slice(1).map(x=>x.split(","));
+  cards.innerHTML="";
+  rows.forEach((x,i)=>{
+    const c=document.createElement("div");
+    c.className="card";
+    c.innerHTML=`<img src="${x[0]}"><b>${x[1]}</b><br>${x[2]} pts`;
+    c.onclick=()=>{document.querySelectorAll(".card").forEach(k=>k.classList.remove("active"));c.classList.add("active");selectedReward=i};
+    cards.appendChild(c);
   });
 }
 
-// REDEEM FUNCTION
-async function redeem(){
-  if(!user) return alert("Login first");
-  const sel = document.getElementById("rewardList");
-  const idx = sel.value;
-  if(idx==="") return alert("Select a reward");
-
-  const body = "uid="+encodeURIComponent(user[0])+"&reward="+encodeURIComponent(idx);
-
-  try{
-    const res = await fetch(URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/x-www-form-urlencoded"},
-      body: body
-    });
-    const jsonResp = await res.json();
-
-    if(jsonResp.status==="OK"){
-      alert("Redeem request sent successfully");
-    } else if(jsonResp.status==="DENIED"){
-      if(jsonResp.reason==="REVERSAL_TOO_HIGH"){
-        alert("Cannot redeem: Reversal too high. Complete more quizzes to reduce it.");
-      } else if(jsonResp.reason==="ACCOUNT_RESTRICTED"){
-        alert("Cannot redeem: Your account is RESTRICTED due to high Reversal.");
-      } else {
-        alert("Cannot redeem: DENIED by system");
-      }
-    } else {
-      alert("Unexpected response: "+JSON.stringify(jsonResp));
-    }
-  } catch(e){
-    console.error(e);
-    alert("Redeem failed: "+e.message);
-  }
+/* ===== HISTORY ===== */
+async function loadHistory(){
+  const r=await fetch(URL+"?history="+user[0]);
+  const rows=(await r.text()).trim().split("\n").slice(1);
+  history.innerHTML="";
+  rows.forEach(x=>{
+    const [date,name,amt,status]=x.split(",");
+    history.innerHTML+=`<div class="${status.toLowerCase()}">${date} • ${name} • ${amt} • ${status}</div>`;
+  });
 }
+
+/* ===== REDEEM ===== */
+async function redeem(){
+  if(selectedReward===null)return;
+  const r=await fetch(URL,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"uid="+user[0]+"&reward="+selectedReward});
+  const j=await r.json();
+  alert(j.status==="OK"?"REQUEST SENT":"DENIED");
+  loadHistory();
+}
+
+restore();
 </script>
+
 </body>
 </html>
