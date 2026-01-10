@@ -1,373 +1,407 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Top Bar UI with Promo Popup + IML Logo</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<title>IML SaaS Home</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Bootstrap 3 -->
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+<!-- Bootstrap 3 -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+
+<style>
+/* ===== BODY ===== */
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: black;
+  color: #fff;
+}
+
+/* ===== TOP BAR ===== */
+.top-bar {
+  width: 100%;
+  padding: 16px 12px 10px;
+  background: #000;
+  box-shadow: 0 2px 4px #000a;
+  position: fixed;
+  top: 0;
+  z-index: 1000;
+}
+
+.top-icons-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.icon-group {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.icon-btn {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+  border: 1px solid #333;
+  cursor: pointer;
+}
+
+.icon-btn span { font-size: 18px; }
+
+.badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 50%;
+  background: #1fd35f;
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== CENTER LOGO ===== */
+.center-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 10px;
+}
+
+.logo-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #d4b236;
+  color: #000;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.logo-text {
+  color: #d4b236;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* ===== SCORE ROW ===== */
+.score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 700;
+  justify-content: center;
+  margin-top: -6px;
+}
+
+.score-main { color: gray; font-size: 18px; }
+.score-separator { color: #777; font-size: 18px; }
+.score-pts { color: #4fe27b; font-size: 18px; }
+.score-pts-label { margin-left: 3px; font-size: 13px; color: #7df5a0; }
+
+/* ===== ACCORDION MENU ===== */
+.accordion-container { width: 100%; max-width: 420px; margin: 120px auto 20px; }
+.panel-heading { background-color: #222 !important; color: #fff !important; border: none; }
+.panel-body { background-color: #111; color: #ccc; }
+
+/* ===== MODAL ===== */
+.modal-content { background: #111; color: #fff; border: 1px solid #333; }
+.captcha-box { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.redeem-btn { margin-top: 15px; width: 100%; }
+
+/* ===== CHAT PANEL ===== */
+.chat-panel {
+  position: fixed;
+  top: 0;
+  right: -50%;
+  width: 50%;
+  height: 100%;
+  background: #111;
+  box-shadow: -2px 0 6px #000a;
+  z-index: 1500;
+  transition: right 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-header {
+  padding: 12px;
+  background: #222;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-body { flex: 1; padding: 12px; overflow-y: auto; }
+
+.close-chat { cursor: pointer; font-weight: 900; color: #f00; }
+
+/* ===== NOTIFICATION POPUP ===== */
+.notif-popup {
+  position: fixed;
+  top: 60px;
+  right: 12px;
+  background: #111;
+  border: 1px solid #333;
+  padding: 12px 18px;
+  border-radius: 8px;
+  display: none;
+  z-index: 1500;
+}
+
+/* ===== CARDS ===== */
+.card-container { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px; justify-content: center; }
+.card {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 10px;
+  width: 200px;
+  padding: 16px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.card:hover { transform: scale(1.03); }
+.card h3 { margin-top: 0; color: #f6d34a; }
+.card p { font-size: 14px; color: #ccc; }
+
+/* ===== LOGIN/SIGNUP FORMS ===== */
+.auth-container {
+  width: 100%;
+  max-width: 360px;
+  margin: 180px auto 20px;
+  padding: 20px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 10px;
+}
+.auth-container input {
+  margin-bottom: 12px;
+}
+.auth-container button { width: 100%; }
+.auth-toggle {
+  text-align: center;
+  margin-top: 10px;
+  cursor: pointer;
+  color: #f6d34a;
+}
+</style>
 </head>
 <body>
-  <div id="app"></div>
 
-  <!-- jQuery + Bootstrap JS -->
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+<div id="app"></div>
 
-  <script>
-    /* ------------------------------
-       Inject CSS via JavaScript
-    ------------------------------ */
-    const style = document.createElement("style");
-    style.textContent = `
-      body {
-        margin: 0;
-        background: #0a0a0a;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.04'/></svg>");
-        background-size: 200px 200px;
-        font-family: 'Segoe UI', sans-serif;
-        color: #fff;
-      }
+<!-- Notification Popup -->
+<div class="notif-popup" id="notifPopup">No notifications at this time</div>
 
-      .top-bar {
-        width: 100%;
-        padding: 16px 12px 10px;
-        background: linear-gradient(180deg, rgba(20,20,20,0.9) 0%, rgba(0,0,0,0.95) 100%);
-        backdrop-filter: blur(6px);
-      }
+<!-- Chat Panel -->
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <span>Chat</span>
+    <span class="close-chat" id="closeChat">&times;</span>
+  </div>
+  <div class="chat-body">
+    <p>No messages yet!</p>
+  </div>
+</div>
 
-      /* ------------------------------
-         PROMOTIONAL BAR
-      ------------------------------ */
-      .promo-banner {
-        width: 100%;
-        text-align: center;
-        padding: 10px 0;
-        font-size: 16px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        background: linear-gradient(90deg, #e2c45a 0%, #c9a732 50%, #e2c45a 100%);
-        color: #000;
-        box-shadow: 0 0 12px rgba(226,196,90,0.45);
-        margin-bottom: 10px;
-      }
-
-      .top-icons-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-      }
-
-      .icon-group {
-        display: flex;
-        align-items: center;
-        gap: 18px;
-      }
-
-      .icon-btn {
-        position: relative;
-        width: 32px;
-        height: 32px;
-        border-radius: 999px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #111;
-        border: 1px solid #333;
-        cursor: pointer;
-      }
-
-      .icon-btn span {
-        font-size: 18px;
-      }
-
-      .badge {
-        position: absolute;
-        top: -6px;
-        right: -6px;
-        min-width: 18px;
-        height: 18px;
-        padding: 0 4px;
-        border-radius: 999px;
-        background: #1fd35f;
-        color: #000;
-        font-size: 11px;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      /* MODERN — IML LOGO */
-      .center-logo {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 0 12px;
-        padding: 2px 0;
-      }
-
-      .logo-circle {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: linear-gradient(145deg, #e2c45a 0%, #c9a732 100%);
-        color: #000;
-        font-weight: 900;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 13px;
-        box-shadow:
-          0 0 6px rgba(212, 178, 54, 0.35),
-          inset 0 0 4px rgba(0, 0, 0, 0.4);
-      }
-
-      .logo-text {
-        color: #e2c45a;
-        font-size: 15px;
-        font-weight: 800;
-        letter-spacing: 1.2px;
-        text-transform: uppercase;
-        text-shadow: 0 0 6px rgba(226, 196, 90, 0.25);
-      }
-
-      .score-row {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
-        font-weight: 700;
-        justify-content: center;
-      }
-
-      .score-main {
-        color: pink;
-        font-size: 18px;
-      }
-
-      .score-separator {
-        color: #777;
-        font-size: 18px;
-      }
-
-      .score-pts {
-        color: white;
-        font-size: 18px;
-      }
-
-      .score-pts-label {
-        margin-left: 3px;
-        font-size: 13px;
-        color: white;
-      }
-
-      .accordion-container {
-        width: 100%;
-        max-width: 420px;
-        margin: 20px auto;
-      }
-
-      .panel-heading {
-        background-color: #222 !important;
-        color: #fff !important;
-        border: none;
-      }
-
-      .panel-body {
-        background-color: #111;
-        color: #ccc;
-      }
-
-      .modal-content {
-        background: #111;
-        color: #fff;
-        border: 1px solid #333;
-      }
-
-      .captcha-box {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 10px;
-      }
-
-      .redeem-btn {
-        margin-top: 15px;
-        width: 100%;
-      }
-    `;
-    document.head.appendChild(style);
-
-    /* ------------------------------
-       Build UI
-    ------------------------------ */
-    const app = document.getElementById("app");
-
-    /* ------------------------------
-       PROMO BANNER (NEW)
-    ------------------------------ */
-    const promoBanner = document.createElement("div");
-    promoBanner.className = "promo-banner";
-    promoBanner.textContent = "We're Opening Soon!";
-    app.appendChild(promoBanner);
-
-    /* ------------------------------
-       TOP BAR
-    ------------------------------ */
-    const topBar = document.createElement("div");
-    topBar.className = "top-bar";
-
-    const iconsRow = document.createElement("div");
-    iconsRow.className = "top-icons-row";
-
-    const leftIcons = document.createElement("div");
-    leftIcons.className = "icon-group";
-
-    const menuBtn = document.createElement("div");
-    menuBtn.className = "icon-btn";
-    menuBtn.setAttribute("data-toggle", "collapse");
-    menuBtn.setAttribute("data-target", "#accordionMenu");
-    menuBtn.innerHTML = `
-      <span style="
-        display:block;
-        width:16px;
-        height:2px;
-        background:#fff;
-        box-shadow:0 6px 0 #fff, 0 -6px 0 #fff;
-      "></span>
-    `;
-
-    const promoBtn = document.createElement("div");
-    promoBtn.className = "icon-btn";
-    promoBtn.setAttribute("data-toggle", "modal");
-    promoBtn.setAttribute("data-target", "#promoModal");
-    promoBtn.innerHTML = `<span>✪</span>`;
-
-    leftIcons.appendChild(menuBtn);
-    leftIcons.appendChild(promoBtn);
-
-    const centerLogo = document.createElement("div");
-    centerLogo.className = "center-logo";
-    centerLogo.innerHTML = `
-      <div class="logo-circle">☆</div>
-      <span class="logo-text">IML</span>
-    `;
-
-    const rightIcons = document.createElement("div");
-    rightIcons.className = "icon-group";
-
-    const megaphoneBtn = document.createElement("div");
-    megaphoneBtn.className = "icon-btn";
-    megaphoneBtn.innerHTML = `<span>⚠</span>`;
-    const badge0 = document.createElement("div");
-    badge0.className = "badge";
-    badge0.textContent = "0";
-    megaphoneBtn.appendChild(badge0);
-
-    const chatBtn = document.createElement("div");
-    chatBtn.className = "icon-btn";
-    chatBtn.innerHTML = `<span>⌘</span>`;
-    const badge10 = document.createElement("div");
-    badge10.className = "badge";
-    badge10.textContent = "10";
-    chatBtn.appendChild(badge10);
-
-    rightIcons.appendChild(megaphoneBtn);
-    rightIcons.appendChild(chatBtn);
-
-    iconsRow.appendChild(leftIcons);
-    iconsRow.appendChild(centerLogo);
-    iconsRow.appendChild(rightIcons);
-
-    const scoreRow = document.createElement("div");
-    scoreRow.className = "score-row";
-    scoreRow.innerHTML = `
-      <span class="score-main">18.89</span>
-      <span class="score-separator">|</span>
-      <span class="score-pts">5.01</span>
-      <span class="score-pts-label">PTS</span>
-    `;
-
-    topBar.appendChild(iconsRow);
-    topBar.appendChild(scoreRow);
-    app.appendChild(topBar);
-
-    /* ------------------------------
-       Accordion Menu
-    ------------------------------ */
-    const accordion = document.createElement("div");
-    accordion.className = "accordion-container";
-
-    accordion.innerHTML = `
-      <div id="accordionMenu" class="panel-group collapse">
-        <div class="panel panel-default">
-          <div class="panel-heading">
-            <h4 class="panel-title">
-              <a data-toggle="collapse" href="#collapse1">Menu Option 1</a>
-            </h4>
-          </div>
-          <div id="collapse1" class="panel-collapse collapse">
-            <div class="panel-body">Details for option 1</div>
-          </div>
+<!-- Promo Modal -->
+<div id="promoModal" class="modal fade" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">Redeem Code Here</h4>
+      </div>
+      <div class="modal-body">
+        <input id="promoInput" type="text" class="form-control" placeholder="Enter promo code">
+        <div class="captcha-box">
+          <input type="checkbox" id="captchaCheck">
+          <label for="captchaCheck">I'm not a robot</label>
         </div>
+        <button id="redeemBtn" class="btn btn-success redeem-btn" disabled>Redeem</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-        <div class="panel panel-default">
-          <div class="panel-heading">
-            <h4 class="panel-title">
-              <a data-toggle="collapse" href="#collapse2">Menu Option 2</a>
-            </h4>
-          </div>
-          <div id="collapse2" class="panel-collapse collapse">
-            <div class="panel-body">Details for option 2</div>
-          </div>
+<!-- jQuery + Bootstrap JS -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+<script>
+// ===== CONFIG =====
+const API_URL = "https://script.google.com/macros/s/AKfycbyw-nPo7-k6_E-Qq4vbTJDDqMt4hX0NnZdtW00qZM7-wldxkZ0wwhZ4A8GPRhUqmSPuqA/exec"; // <-- replace with your deployed code.gs URL
+let currentUser = null;
+
+// ===== APP INIT =====
+const app = document.getElementById("app");
+showLogin();
+
+// ===== FUNCTIONS =====
+function showLogin() {
+  app.innerHTML = `
+  <div class="auth-container">
+    <h3>Login</h3>
+    <input id="loginId" type="text" class="form-control" placeholder="User ID">
+    <button id="loginBtn" class="btn btn-primary">Login</button>
+    <div class="auth-toggle" id="toggleSignup">No account? Sign up</div>
+  </div>
+  `;
+  document.getElementById("loginBtn").onclick = loginUser;
+  document.getElementById("toggleSignup").onclick = showSignup;
+}
+
+function showSignup() {
+  app.innerHTML = `
+  <div class="auth-container">
+    <h3>Sign Up</h3>
+    <input id="signupId" type="text" class="form-control" placeholder="User ID">
+    <input id="signupName" type="text" class="form-control" placeholder="Name">
+    <input id="signupEmail" type="email" class="form-control" placeholder="Email">
+    <button id="signupBtn" class="btn btn-success">Sign Up</button>
+    <div class="auth-toggle" id="toggleLogin">Already have an account? Login</div>
+  </div>
+  `;
+  document.getElementById("signupBtn").onclick = signupUser;
+  document.getElementById("toggleLogin").onclick = showLogin;
+}
+
+async function loginUser() {
+  const userId = document.getElementById("loginId").value;
+  if (!userId) return alert("Enter User ID");
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ action: "getUser", userId })
+  });
+  const data = await res.json();
+  if (!data.userId) return alert("User not found");
+  currentUser = data;
+  showDashboard();
+}
+
+async function signupUser() {
+  const userId = document.getElementById("signupId").value;
+  const name = document.getElementById("signupName").value;
+  const email = document.getElementById("signupEmail").value;
+  if (!userId || !name || !email) return alert("Fill all fields");
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ action: "addUser", userId, name, email })
+  });
+  const data = await res.json();
+  if (data.status !== "success") return alert(data.message);
+  currentUser = { userId, name, email, points: 0, level: "Bronze" };
+  showDashboard();
+}
+
+function showDashboard() {
+  app.innerHTML = ""; // clear
+  renderTopBar();
+  renderAccordionMenu();
+  renderCards();
+}
+
+// ===== RENDER TOP BAR =====
+function renderTopBar() {
+  const topBar = document.createElement("div");
+  topBar.className = "top-bar";
+  topBar.innerHTML = `
+  <div class="top-icons-row">
+    <div class="icon-group">
+      <div class="icon-btn" id="menuBtn"><span style="display:block;width:16px;height:2px;background:#fff;box-shadow:0 6px 0 #fff,0 -6px 0 #fff;"></span></div>
+      <div class="icon-btn" data-toggle="modal" data-target="#promoModal"><span>🎟️</span></div>
+    </div>
+    <div class="center-logo"><div class="logo-circle">I</div><span class="logo-text">IML</span></div>
+    <div class="icon-group">
+      <div class="icon-btn" id="notifBtn"><span>📣</span></div>
+      <div class="icon-btn" id="chatBtn"><span>💬</span></div>
+    </div>
+  </div>
+  <div class="score-row">
+    <span class="score-main">${currentUser.points}</span>
+    <span class="score-separator">|</span>
+    <span class="score-pts">${currentUser.level}</span>
+    <span class="score-pts-label">LEVEL</span>
+  </div>
+  `;
+  app.appendChild(topBar);
+
+  // interactions
+  document.getElementById("notifBtn").onclick = () => {
+    const popup = document.getElementById("notifPopup");
+    popup.style.display = "block";
+    setTimeout(() => popup.style.display = "none", 2000);
+  };
+  document.getElementById("chatBtn").onclick = () => document.getElementById("chatPanel").style.right = "0";
+  document.getElementById("closeChat").onclick = () => document.getElementById("chatPanel").style.right = "-50%";
+}
+
+// ===== ACCORDION MENU =====
+function renderAccordionMenu() {
+  const accordion = document.createElement("div");
+  accordion.className = "accordion-container";
+  accordion.innerHTML = `
+  <div id="accordionMenu" class="panel-group">
+    ${["Earn","Redeem","Win","FAQ"].map(page=>`
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h4 class="panel-title"><a data-toggle="collapse" href="#collapse${page}">${page}</a></h4>
+        </div>
+        <div id="collapse${page}" class="panel-collapse collapse">
+          <div class="panel-body" id="${page}Content"></div>
         </div>
       </div>
-    `;
+    `).join("")}
+  </div>
+  `;
+  app.appendChild(accordion);
 
-    app.appendChild(accordion);
+  // Fill content dynamically
+  document.getElementById("EarnContent").innerHTML = `<p>Complete surveys, tasks, watch videos to earn points.</p>`;
+  document.getElementById("RedeemContent").innerHTML = `<p>Redeem your points for rewards.</p>`;
+  document.getElementById("WinContent").innerHTML = `<p>Win bonus points and special rewards!</p>`;
+  document.getElementById("FAQContent").innerHTML = `<p>Frequently Asked Questions about IML SaaS.</p>`;
+}
 
-    /* ------------------------------
-       Promo Modal Popup
-    ------------------------------ */
-    const promoModal = document.createElement("div");
-    promoModal.innerHTML = `
-      <div id="promoModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
+// ===== HOME CARDS =====
+function renderCards() {
+  const cardContainer = document.createElement("div");
+  cardContainer.className = "card-container";
+  cardContainer.innerHTML = `
+    <div class="card">
+      <h3>Do Surveys</h3>
+      <p>Get paid for completing surveys easily.</p>
+    </div>
+    <div class="card">
+      <h3>Try New Products</h3>
+      <p>Test products, play games, watch videos, and earn points!</p>
+    </div>
+  `;
+  app.appendChild(cardContainer);
+}
 
-          <div class="modal-content">
-            <div class="modal-header">
-              <button type="button" class="close" data-dismiss="modal">&times;</button>
-              <h4 class="modal-title">Redeem Code Here</h4>
-            </div>
-
-            <div class="modal-body">
-              <input id="promoInput" type="text" class="form-control" placeholder="Enter promo code">
-
-              <div class="captcha-box">
-                <input type="checkbox" id="captchaCheck">
-                <label for="captchaCheck">I'm not a robot</label>
-              </div>
-
-              <button id="redeemBtn" class="btn btn-success redeem-btn" disabled>Redeem</button>
-            </div>
-
-          </div>
-
-        </div>
-      </div>
-    `;
-
-    app.appendChild(promoModal);
-
-    /* ------------------------------
-       CAPTCHA Logic
-    ------------------------------ */
-    $(document).on("change", "#captchaCheck", function () {
-      $("#redeemBtn").prop("disabled", !this.checked);
-    });
-  </script>
+// ===== PROMO MODAL INTERACTION =====
+$(document).on("change", "#captchaCheck", function () {
+  $("#redeemBtn").prop("disabled", !this.checked);
+});
+</script>
 </body>
 </html>
