@@ -1,7 +1,7 @@
 // ==== CONFIG ==========================================================
 // Google Sheets CSV URL - Updated to the provided URL
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbr8c2K0uVJEeMCxCxd8bm9cUUE1ppa_wAWSEuxAti6kZRSH6vhgN54r-oqwbr9j46r5RTIKne8kqk/pub?gid=0&single=true&output=csv";
-var SUBMIT_URL = "https://script.google.com/macros/s/AKfycbw6yQvH0r5lMLtQsvZXKqpZ8EmFm8sYgbqEdPYYrdxN66cVL4iyE4E4Uz-kL8X9QY2kqg/exec";
+var SUBMIT_URL = "https://script.google.com/macros/s/AKfycbzGE7BtUsUceMeoFA6_hDKBU21ChxA9Gd0_XMkt_CQZ8amWGRDGGFCmKW2bNWTpR2bP/exec";
 
 var BASE_RATE = 10;
 var POINTS_PER_CORRECT = 5;
