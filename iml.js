@@ -1,6 +1,6 @@
 // ==== CONFIG ==========================================================
-// Google Sheets CSV URL - Using the export format for your sheet
-var CSV_URL = "https://docs.google.com/spreadsheets/d/15-9QTGGm51t_DwxG4VCmxtK_hn2JcEiIORQTE-5QtcY/export?format=csv&gid=0";
+// Google Sheets CSV URL - Updated to the provided URL
+var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbr8c2K0uVJEeMCxCxd8bm9cUUE1ppa_wAWSEuxAti6kZRSH6vhgN54r-oqwbr9j46r5RTIKne8kqk/pub?gid=0&single=true&output=csv";
 
 var BASE_RATE = 10;
 var POINTS_PER_CORRECT = 5;
@@ -109,6 +109,9 @@ function fetchCSV() {
     state.rows = rows;
     state.csvLoaded = true;
     
+    console.log("CSV loaded successfully:", rows.length, "rows");
+    console.log("Sample row:", rows[0]);
+    
     // Update status
     if (refs.dataStatus) {
       refs.dataStatus.innerHTML = "<strong>✓ Database Ready:</strong> " + rows.length + " user accounts loaded";
@@ -126,7 +129,7 @@ function fetchCSV() {
   .catch(function(error) {
     console.error('CSV loading error:', error);
     
-    // Show error but don't use fallback data
+    // Show error
     if (refs.dataStatus) {
       refs.dataStatus.innerHTML = "<strong>✗ Connection Error:</strong> Could not load user database. Please check your internet connection.";
       refs.dataStatus.className = "iml-data-status iml-error";
@@ -137,7 +140,7 @@ function fetchCSV() {
       refs.loginBtn.textContent = "Database Unavailable";
     }
     
-    throw error; // Re-throw to prevent login
+    throw error;
   });
 }
 
@@ -148,6 +151,7 @@ function parseCSV(csvText) {
   
   // Parse headers (first line)
   var headers = parseCSVLine(lines[0]);
+  console.log("CSV Headers:", headers);
   
   // Parse data rows
   var rows = [];
@@ -353,7 +357,9 @@ function buildLayout() {
     "• Answer questions to earn PTS<br>" +
     "• Each correct answer = 5 PTS<br>" +
     "• Monitor your reversal rate<br>" +
-    "• PTS may be held if reversal ≥ 3%";
+    "• PTS may be held if reversal ≥ 3%<br><br>" +
+    "<strong>Data URL:</strong><br>" +
+    "CSV: " + CSV_URL.substring(0, 60) + "...";
   append(infoB, [infoContent]);
   append(pInfo, [infoH, infoB]);
 
@@ -405,25 +411,40 @@ function findUser(username, password) {
   username = username.toLowerCase();
   for (var i = 0; i < state.rows.length; i++) {
     var r = state.rows[i];
-    var rUsername = (r.Username || "").toLowerCase();
-    var rPassword = r.Password || "";
-
+    
+    // Debug: Log row data for troubleshooting
+    if (i === 0) {
+      console.log("First row sample for debugging:", r);
+    }
+    
+    // Try different possible column names for username and password
+    var rUsername = (r.Username || r.username || r.User || r.user || "").toLowerCase();
+    var rPassword = r.Password || r.password || r.Pass || r.pass || "";
+    
+    // Try to find status with different possible column names
+    var rStatus = r.Status || r.status || r.Active || r.active || "Inactive";
+    
     if (rUsername === username && rPassword === password) {
+      console.log("User found:", username);
+      
+      // Try different column name variations for questions and answers
       return {
-        username: r.Username,
-        status: r.Status || "Inactive",
-        reversal: parseFloat(r.Reversal || "0") || 0,
-        pts: parseFloat(r.PTS || "0") || 0,
-        rate: parseFloat(r.Rate || BASE_RATE) || BASE_RATE,
-        q1: r["#1"] || "",
-        q2: r["#2"] || "",
-        q3: r["#3"] || "",
-        ans1: r.Ans1 || "",
-        ans2: r.Ans2 || "",
-        ans3: r.Ans3 || ""
+        username: r.Username || r.username || username,
+        status: rStatus,
+        reversal: parseFloat(r.Reversal || r.reversal || "0") || 0,
+        pts: parseFloat(r.PTS || r.Points || r.points || "0") || 0,
+        rate: parseFloat(r.Rate || r.rate || BASE_RATE) || BASE_RATE,
+        q1: r["#1"] || r.Question1 || r.question1 || r.Q1 || "",
+        q2: r["#2"] || r.Question2 || r.question2 || r.Q2 || "",
+        q3: r["#3"] || r.Question3 || r.question3 || r.Q3 || "",
+        ans1: r.Ans1 || r.Answer1 || r.answer1 || r.A1 || "",
+        ans2: r.Ans2 || r.Answer2 || r.answer2 || r.A2 || "",
+        ans3: r.Ans3 || r.Answer3 || r.answer3 || r.A3 || ""
       };
     }
   }
+  
+  console.log("User not found:", username);
   return null;
 }
 
@@ -591,6 +612,7 @@ document.addEventListener("DOMContentLoaded", function() {
   buildLayout();
 
   // Start loading CSV data immediately
+  console.log("Starting CSV fetch from:", CSV_URL);
   fetchCSV().then(function(rows) {
     console.log("Successfully loaded " + rows.length + " user records");
   }).catch(function(error) {
