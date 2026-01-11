@@ -1,7 +1,7 @@
 // ==== CONFIG ==========================================================
 // Google Sheets CSV URL - This is the IMPORTANT fix
 // First, publish your Google Sheet: File → Share → Publish to web → CSV
-var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbr8c2K0uVJEeMCxCxd8bm9cUUE1ppa_wAWSEuxAti6kZRSH6vhgN54r-oqwbr9j46r5RTIKne8kqk/pub?gid=0&single=true&output=csv";
+var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbr8c2K0uVJEeMCxCxd8bm9cUUE1ppa_wAWSEuxAti6kZRSH6vhgN54r-oqwbr9j46r5RTIKne8kqk/pub?output=csv";
 var SUBMIT_URL = "https://script.google.com/macros/s/AKfycbzGE7BtUsUceMeoFA6_hDKBU21ChxA9Gd0_XMkt_CQZ8amWGRDGGFCmKW2bNWTpR2bP/exec";
 
 var BASE_RATE = 10;
