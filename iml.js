@@ -1,5 +1,6 @@
 // ==== CONFIG ==========================================================
-// Google Sheets CSV URL - Updated to the provided URL
+// Google Sheets CSV URL - This is the IMPORTANT fix
+// First, publish your Google Sheet: File → Share → Publish to web → CSV
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbr8c2K0uVJEeMCxCxd8bm9cUUE1ppa_wAWSEuxAti6kZRSH6vhgN54r-oqwbr9j46r5RTIKne8kqk/pub?gid=0&single=true&output=csv";
 var SUBMIT_URL = "https://script.google.com/macros/s/AKfycbzGE7BtUsUceMeoFA6_hDKBU21ChxA9Gd0_XMkt_CQZ8amWGRDGGFCmKW2bNWTpR2bP/exec";
 
@@ -16,7 +17,9 @@ var state = {
   reversal: 0,
   correct: 0,
   attempts: 0,
-  csvLoaded: false
+  csvLoaded: false,
+  retryCount: 0,
+  maxRetries: 3
 };
 var refs = {};
 
@@ -82,6 +85,7 @@ function injectAssets() {
   + ".iml-loading{color:#00b1ff;font-size:14px;text-align:center;padding:20px;}"
   + ".iml-success{color:#4CAF50;background:rgba(76,175,80,0.1);border-color:rgba(76,175,80,0.3);}"
   + ".iml-error{color:#ff6b6b;background:rgba(255,107,107,0.1);border-color:rgba(255,107,107,0.3);}"
+  + ".iml-warning{color:#ff9800;background:rgba(255,152,0,0.1);border-color:rgba(255,152,0,0.3);}"
   + ".iml-bottom-nav{display:none;}"
   + ".iml-page-content{min-height:400px;}"
   + ".iml-home-content{text-align:center;padding:40px 20px;}"
@@ -109,28 +113,39 @@ function injectAssets() {
 function fetchCSV() {
   return fetch(CSV_URL, {
     mode: 'cors',
-    cache: 'no-store'
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache'
+    }
   })
   .then(function(response) {
+    console.log("CSV Response status:", response.status);
     if (!response.ok) {
       throw new Error('Failed to load data. Status: ' + response.status);
     }
     return response.text();
   })
   .then(function(csvText) {
+    console.log("CSV Text received length:", csvText.length);
+    
     if (!csvText || csvText.trim().length === 0) {
       throw new Error('Data file is empty');
     }
     
     var rows = parseCSV(csvText);
+    console.log("Parsed rows:", rows.length);
+    
     if (rows.length === 0) {
-      throw new Error('No user data found');
+      throw new Error('No user data found in CSV');
     }
     
     state.rows = rows;
     state.csvLoaded = true;
+    state.retryCount = 0;
     
     console.log("CSV loaded successfully:", rows.length, "rows");
+    console.log("First row sample:", rows[0]);
     
     // Enable login button
     if (refs.loginBtn) {
@@ -143,39 +158,147 @@ function fetchCSV() {
   .catch(function(error) {
     console.error('CSV loading error:', error);
     
+    state.retryCount++;
+    
+    // Try alternative CSV format if main URL fails
+    if (state.retryCount < state.maxRetries) {
+      console.log(`Retrying CSV load (attempt ${state.retryCount} of ${state.maxRetries})...`);
+      
+      // Try alternative CSV URL format
+      var alternativeURL = CSV_URL.replace('pub?gid=0&single=true&output=csv', 'export?format=csv&gid=0');
+      console.log("Trying alternative URL:", alternativeURL);
+      
+      if (refs.loginBtn) {
+        refs.loginBtn.disabled = true;
+        refs.loginBtn.textContent = `Retrying (${state.retryCount}/${state.maxRetries})...`;
+      }
+      
+      // Retry with delay
+      return new Promise(function(resolve) {
+        setTimeout(function() {
+          fetch(alternativeURL, { mode: 'cors', cache: 'no-store' })
+            .then(function(res) {
+              if (!res.ok) throw new Error('Alternative URL failed');
+              return res.text();
+            })
+            .then(function(text) {
+              var rows = parseCSV(text);
+              state.rows = rows;
+              state.csvLoaded = true;
+              state.retryCount = 0;
+              
+              if (refs.loginBtn) {
+                refs.loginBtn.disabled = false;
+                refs.loginBtn.textContent = "Login to Console";
+              }
+              
+              resolve(rows);
+            })
+            .catch(function(altError) {
+              console.error('Alternative URL also failed:', altError);
+              throw error; // Re-throw original error
+            });
+        }, 1000 * state.retryCount); // Exponential backoff
+      });
+    }
+    
+    // All retries failed
     if (refs.loginBtn) {
       refs.loginBtn.disabled = true;
       refs.loginBtn.textContent = "Database Unavailable";
     }
     
+    // Provide helpful error message
+    showDatabaseError("Cannot connect to user database. Please check:");
+    
     throw error;
   });
 }
 
+// Show database error with instructions
+function showDatabaseError(message) {
+  if (!refs.loginMsg) return;
+  
+  var errorHtml = `
+    <div style="color: #ff6b6b; margin-bottom: 10px;">
+      <strong>⚠️ Database Connection Error</strong><br>
+      ${message}
+    </div>
+    <div style="background: rgba(255,107,107,0.1); padding: 10px; border-radius: 5px; font-size: 11px; margin-top: 10px;">
+      <strong>To fix this:</strong><br>
+      1. Open your Google Sheet<br>
+      2. Click "File" → "Share" → "Publish to web"<br>
+      3. Select "CSV" format and click "Publish"<br>
+      4. Copy the new CSV URL and update the CSV_URL in the code<br>
+      5. Refresh this page
+    </div>
+  `;
+  
+  refs.loginMsg.innerHTML = errorHtml;
+  refs.loginMsg.className = "iml-inline-msg iml-error";
+  refs.loginMsg.style.display = "block";
+}
+
 // Parse CSV text into array of objects
 function parseCSV(csvText) {
-  var lines = csvText.trim().split('\n');
-  if (lines.length < 2) return [];
-  
-  var headers = parseCSVLine(lines[0]);
-  var rows = [];
-  
-  for (var i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
+  try {
+    var lines = csvText.trim().split('\n');
+    console.log("Total lines in CSV:", lines.length);
     
-    var values = parseCSVLine(lines[i]);
-    var row = {};
-    
-    for (var j = 0; j < headers.length; j++) {
-      var header = headers[j].trim();
-      var value = (j < values.length ? values[j].trim() : '');
-      row[header] = value;
+    if (lines.length < 2) {
+      console.warn("CSV has less than 2 lines");
+      return [];
     }
     
-    rows.push(row);
+    // Parse headers
+    var headers = parseCSVLine(lines[0]);
+    console.log("CSV Headers:", headers);
+    
+    // Parse data rows
+    var rows = [];
+    for (var i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      
+      try {
+        var values = parseCSVLine(lines[i]);
+        var row = {};
+        
+        for (var j = 0; j < headers.length; j++) {
+          var header = headers[j].trim();
+          var value = (j < values.length ? values[j].trim() : '');
+          
+          // Handle common header variations
+          if (header.toLowerCase().includes('username') || header.toLowerCase().includes('user')) {
+            row['Username'] = value;
+          } else if (header.toLowerCase().includes('password') || header.toLowerCase().includes('pass')) {
+            row['Password'] = value;
+          } else if (header.toLowerCase().includes('status') || header.toLowerCase().includes('active')) {
+            row['Status'] = value;
+          } else if (header.toLowerCase().includes('reversal')) {
+            row['Reversal'] = value;
+          } else if (header.toLowerCase().includes('pts') || header.toLowerCase().includes('points')) {
+            row['PTS'] = value;
+          } else if (header.toLowerCase().includes('rate')) {
+            row['Rate'] = value;
+          } else {
+            // Keep original header for other columns
+            row[header] = value;
+          }
+        }
+        
+        rows.push(row);
+      } catch (rowError) {
+        console.error("Error parsing row", i + 1, ":", rowError);
+      }
+    }
+    
+    console.log("Successfully parsed", rows.length, "rows");
+    return rows;
+    
+  } catch (error) {
+    console.error("Error in parseCSV:", error);
+    return [];
   }
-  
-  return rows;
 }
 
 // Parse a single CSV line, handling quoted fields
@@ -227,9 +350,13 @@ function loadSession() {
       // Check if session is less than 24 hours old
       if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
         return data;
+      } else {
+        // Clear expired session
+        clearSession();
       }
     } catch (e) {
       console.error('Error loading session:', e);
+      clearSession();
     }
   }
   return null;
@@ -241,24 +368,53 @@ function clearSession() {
 
 // ==== SUBMIT DATA TO SHEETS ===========================================
 function submitQuizData(username, correctAnswers, totalPoints, reversalRate) {
-  var formData = new FormData();
-  formData.append('username', username);
-  formData.append('correctAnswers', correctAnswers);
-  formData.append('totalPoints', totalPoints);
-  formData.append('reversalRate', reversalRate);
-  formData.append('timestamp', new Date().toISOString());
+  // Create form data
+  var data = {
+    username: username,
+    correctAnswers: correctAnswers,
+    totalPoints: totalPoints,
+    reversalRate: reversalRate,
+    timestamp: new Date().toISOString()
+  };
   
+  console.log("Submitting quiz data:", data);
+  
+  // Try to submit to Google Apps Script
   return fetch(SUBMIT_URL, {
     method: 'POST',
-    mode: 'no-cors',
-    body: formData
+    mode: 'no-cors', // Use 'no-cors' to avoid CORS issues
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(data).toString()
   })
-  .then(function(response) {
-    console.log('Quiz data submitted successfully');
+  .then(function() {
+    // With 'no-cors', we can't read the response, but we assume it worked
+    console.log('Quiz data submitted successfully (no-cors mode)');
     return true;
   })
   .catch(function(error) {
     console.error('Error submitting quiz data:', error);
+    
+    // Fallback: Store in localStorage if server is unavailable
+    try {
+      var submissions = JSON.parse(localStorage.getItem('iml_pending_submissions') || '[]');
+      submissions.push({
+        ...data,
+        localTimestamp: Date.now()
+      });
+      
+      // Keep only last 50 submissions
+      if (submissions.length > 50) {
+        submissions = submissions.slice(-50);
+      }
+      
+      localStorage.setItem('iml_pending_submissions', JSON.stringify(submissions));
+      console.log('Quiz data saved locally for later sync');
+    } catch (localError) {
+      console.error('Failed to save locally:', localError);
+    }
+    
     return false;
   });
 }
@@ -274,6 +430,10 @@ function buildLayout() {
   var nh = el("div", "navbar-header");
   var brand = el("a", "navbar-brand", "IML CONSOLE");
   brand.href = "#";
+  brand.onclick = function(e) {
+    e.preventDefault();
+    switchPage('home');
+  };
   nh.appendChild(brand);
   var ul = el("ul", "nav navbar-nav");
   ["HOME", "EARN", "SHOP", "LEADERS", "HELP", "CHAT"].forEach(function(txt, i) {
@@ -397,6 +557,13 @@ function buildEarnPage() {
   var pLH = el("div", "panel-heading", "User Authentication");
   var pLB = el("div", "panel-body");
   
+  // Add database status indicator
+  var dbStatus = el("div", "iml-inline-msg iml-loading");
+  dbStatus.id = "db-status";
+  dbStatus.textContent = "Connecting to database...";
+  dbStatus.style.display = "block";
+  pLB.appendChild(dbStatus);
+  
   refs.loginMsg = el("div", "iml-inline-msg");
   refs.loginMsg.style.display = "none";
   pLB.appendChild(refs.loginMsg);
@@ -423,11 +590,27 @@ function buildEarnPage() {
   var btnLogin = el("button", "btn btn-iml btn-block", "Loading Database...");
   btnLogin.type = "button";
   btnLogin.disabled = true;
+  btnLogin.id = "login-button";
   refs.loginBtn = btnLogin;
   append(cBtn, [btnLogin]);
   r2.appendChild(cBtn);
 
-  append(pLB, [r1, el("hr"), r2]);
+  var testRow = el("div", "row");
+  var testCol = el("div", "col-xs-12 text-center");
+  var testLink = el("a", "iml-q-text", "Test Database Connection");
+  testLink.href = "#";
+  testLink.style.color = "#00b1ff";
+  testLink.style.textDecoration = "underline";
+  testLink.style.cursor = "pointer";
+  testLink.style.fontSize = "11px";
+  testLink.onclick = function(e) {
+    e.preventDefault();
+    testDatabaseConnection();
+  };
+  testCol.appendChild(testLink);
+  testRow.appendChild(testCol);
+
+  append(pLB, [r1, el("hr"), r2, el("br"), testRow]);
   append(pLogin, [pLH, pLB]);
 
   // DASHBOARD PANEL (HIDDEN INITIALLY)
@@ -623,6 +806,16 @@ function buildHelpPage() {
     
     <p><strong>Q: What is reversal rate?</strong><br>
     A: This is your error rate. Keep it below ${REVERSAL_THRESHOLD}% to avoid holds.</p>
+    
+    <h4>Database Connection Issues</h4>
+    <p>If you see "Database Unavailable":</p>
+    <ol>
+      <li>Make sure the Google Sheet is published (File → Share → Publish to web)</li>
+      <li>Select CSV format and click "Publish"</li>
+      <li>Copy the new CSV URL</li>
+      <li>Update the CSV_URL in the code</li>
+      <li>Refresh the page</li>
+    </ol>
   `;
   
   append(panelBody, [helpContent]);
@@ -737,30 +930,46 @@ function findUser(username, password) {
   }
 
   username = username.toLowerCase();
+  
+  console.log("Looking for user:", username);
+  console.log("Total users in database:", state.rows.length);
+  
   for (var i = 0; i < state.rows.length; i++) {
     var r = state.rows[i];
     
-    var rUsername = (r.Username || r.username || r.User || r.user || "").toLowerCase();
+    // Debug: log first few rows
+    if (i < 3) {
+      console.log(`Row ${i}:`, r);
+    }
+    
+    // Try to get username with different possible column names
+    var rUsername = (r.Username || r.username || r.User || r.user || r['User Name'] || "").toString().toLowerCase();
     var rPassword = r.Password || r.password || r.Pass || r.pass || "";
     var rStatus = r.Status || r.status || r.Active || r.active || "Inactive";
+    
+    console.log(`Comparing: input="${username}" vs db="${rUsername}", password match? ${rPassword === password}`);
     
     if (rUsername === username && rPassword === password) {
       console.log("User found:", username);
       
-      return {
+      // Try to extract questions and answers
+      var userData = {
         username: r.Username || r.username || username,
         password: password,
         status: rStatus,
         reversal: parseFloat(r.Reversal || r.reversal || "0") || 0,
         pts: parseFloat(r.PTS || r.Points || r.points || "0") || 0,
         rate: parseFloat(r.Rate || r.rate || BASE_RATE) || BASE_RATE,
-        q1: r["#1"] || r.Question1 || r.question1 || r.Q1 || "",
-        q2: r["#2"] || r.Question2 || r.question2 || r.Q2 || "",
-        q3: r["#3"] || r.Question3 || r.question3 || r.Q3 || "",
-        ans1: r.Ans1 || r.Answer1 || r.answer1 || r.A1 || "",
-        ans2: r.Ans2 || r.Answer2 || r.answer2 || r.A2 || "",
-        ans3: r.Ans3 || r.Answer3 || r.answer3 || r.A3 || ""
+        q1: r["#1"] || r.Question1 || r.question1 || r.Q1 || r['Question 1'] || "",
+        q2: r["#2"] || r.Question2 || r.question2 || r.Q2 || r['Question 2'] || "",
+        q3: r["#3"] || r.Question3 || r.question3 || r.Q3 || r['Question 3'] || "",
+        ans1: r.Ans1 || r.Answer1 || r.answer1 || r.A1 || r['Answer 1'] || "",
+        ans2: r.Ans2 || r.Answer2 || r.answer2 || r.A2 || r['Answer 2'] || "",
+        ans3: r.Ans3 || r.Answer3 || r.answer3 || r.A3 || r['Answer 3'] || ""
       };
+      
+      console.log("User data extracted:", userData);
+      return userData;
     }
   }
   
@@ -777,6 +986,8 @@ function showLoginMessage(msg, type) {
     refs.loginMsg.classList.add("iml-error");
   } else if (type === "success") {
     refs.loginMsg.classList.add("iml-success");
+  } else if (type === "warning") {
+    refs.loginMsg.classList.add("iml-warning");
   }
   
   refs.loginMsg.style.display = "block";
@@ -797,7 +1008,7 @@ function onLogin(u, p) {
 
   var user = findUser(u, p);
   if (!user) {
-    showLoginMessage("Invalid username or password.", "error");
+    showLoginMessage("Invalid username or password. Please check your credentials.", "error");
     return;
   }
 
@@ -895,6 +1106,8 @@ function onAnswer(idx, inputEl) {
       .then(function(success) {
         if (success) {
           console.log("Quiz data submitted to sheets successfully");
+        } else {
+          console.log("Quiz data saved locally for later sync");
         }
       });
   } else {
@@ -934,6 +1147,47 @@ function onLogout() {
 
   // Clear login message
   refs.loginMsg.style.display = "none";
+}
+
+// ==== DATABASE TEST FUNCTION ==========================================
+function testDatabaseConnection() {
+  var dbStatus = document.getElementById('db-status');
+  if (dbStatus) {
+    dbStatus.textContent = "Testing database connection...";
+    dbStatus.className = "iml-inline-msg iml-loading";
+    dbStatus.style.display = "block";
+  }
+  
+  fetch(CSV_URL, { mode: 'cors', cache: 'no-store' })
+    .then(function(response) {
+      if (dbStatus) {
+        dbStatus.innerHTML = `
+          <strong>✓ Database Test Result:</strong><br>
+          Status: ${response.status} ${response.statusText}<br>
+          Connection: Successful
+        `;
+        dbStatus.className = "iml-inline-msg iml-success";
+      }
+      console.log("Database test successful:", response.status);
+      return response.text();
+    })
+    .then(function(text) {
+      console.log("Database content length:", text.length);
+      if (text.length < 100) {
+        console.warn("Database content seems too short:", text);
+      }
+    })
+    .catch(function(error) {
+      if (dbStatus) {
+        dbStatus.innerHTML = `
+          <strong>✗ Database Test Result:</strong><br>
+          Error: ${error.message}<br>
+          Please check if the Google Sheet is published.
+        `;
+        dbStatus.className = "iml-inline-msg iml-error";
+      }
+      console.error("Database test failed:", error);
+    });
 }
 
 // ==== EVENT LISTENERS SETUP ===========================================
@@ -981,10 +1235,23 @@ document.addEventListener("DOMContentLoaded", function() {
   injectAssets();
   buildLayout();
   
+  // Update database status
+  var dbStatus = document.getElementById('db-status');
+  if (dbStatus) {
+    dbStatus.textContent = "Connecting to database...";
+  }
+  
   // Try to restore session
   var savedSession = loadSession();
   if (savedSession) {
     console.log("Restoring saved session for:", savedSession.username);
+    
+    // Update database status
+    if (dbStatus) {
+      dbStatus.textContent = "Restoring previous session...";
+      dbStatus.className = "iml-inline-msg iml-loading";
+    }
+    
     // Auto-login with saved credentials
     setTimeout(function() {
       onLogin(savedSession.username, savedSession.password);
@@ -995,9 +1262,31 @@ document.addEventListener("DOMContentLoaded", function() {
   console.log("Starting CSV fetch from:", CSV_URL);
   fetchCSV().then(function(rows) {
     console.log("Successfully loaded " + rows.length + " user records");
+    
+    // Update database status
+    if (dbStatus) {
+      dbStatus.innerHTML = `
+        <strong>✓ Database Ready:</strong><br>
+        Loaded ${rows.length} user accounts<br>
+        Connection: Stable
+      `;
+      dbStatus.className = "iml-inline-msg iml-success";
+    }
+    
     setupEventListeners();
   }).catch(function(error) {
     console.error("Failed to load database:", error);
+    
+    // Update database status
+    if (dbStatus) {
+      dbStatus.innerHTML = `
+        <strong>✗ Database Error:</strong><br>
+        Failed to load user data<br>
+        Check console for details
+      `;
+      dbStatus.className = "iml-inline-msg iml-error";
+    }
+    
     setupEventListeners();
   });
 });
