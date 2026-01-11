@@ -1,8 +1,14 @@
+<script>
+'use strict';
+
 // ==== CONFIG ==========================================================
 // Google Sheets CSV URL - This is the IMPORTANT fix
 // First, publish your Google Sheet: File → Share → Publish to web → CSV
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbr8c2K0uVJEeMCxCxd8bm9cUUE1ppa_wAWSEuxAti6kZRSH6vhgN54r-oqwbr9j46r5RTIKne8kqk/pub?gid=826222641&single=true&output=csv";
-var SUBMIT_URL = "https://script.google.com/macros/s/AKfycbzGE7BtUsUceMeoFA6_hDKBU21ChxA9Gd0_XMkt_CQZ8amWGRDGGFCmKW2bNWTpR2bP/exec";
+
+// CGI endpoint (replace with your secure gov/server URL, e.g.:
+// "https://your.gov-domain.gov/cgi-bin/iml_submit.cgi")
+var SUBMIT_URL = "/cgi-bin/iml_submit.cgi";
 
 var BASE_RATE = 10;
 var POINTS_PER_CORRECT = 5;
@@ -162,7 +168,7 @@ function fetchCSV() {
     
     // Try alternative CSV format if main URL fails
     if (state.retryCount < state.maxRetries) {
-      console.log(`Retrying CSV load (attempt ${state.retryCount} of ${state.maxRetries})...`);
+      console.log("Retrying CSV load (attempt " + state.retryCount + " of " + state.maxRetries + ")...");
       
       // Try alternative CSV URL format
       var alternativeURL = CSV_URL.replace('pub?gid=0&single=true&output=csv', 'export?format=csv&gid=0');
@@ -170,7 +176,7 @@ function fetchCSV() {
       
       if (refs.loginBtn) {
         refs.loginBtn.disabled = true;
-        refs.loginBtn.textContent = `Retrying (${state.retryCount}/${state.maxRetries})...`;
+        refs.loginBtn.textContent = "Retrying (" + state.retryCount + "/" + state.maxRetries + ")...";
       }
       
       // Retry with delay
@@ -219,20 +225,19 @@ function fetchCSV() {
 function showDatabaseError(message) {
   if (!refs.loginMsg) return;
   
-  var errorHtml = `
-    <div style="color: #ff6b6b; margin-bottom: 10px;">
-      <strong>⚠️ Database Connection Error</strong><br>
-      ${message}
-    </div>
-    <div style="background: rgba(255,107,107,0.1); padding: 10px; border-radius: 5px; font-size: 11px; margin-top: 10px;">
-      <strong>To fix this:</strong><br>
-      1. Open your Google Sheet<br>
-      2. Click "File" → "Share" → "Publish to web"<br>
-      3. Select "CSV" format and click "Publish"<br>
-      4. Copy the new CSV URL and update the CSV_URL in the code<br>
-      5. Refresh this page
-    </div>
-  `;
+  var errorHtml = ""
+    + '<div style="color: #ff6b6b; margin-bottom: 10px;">'
+    + '  <strong>⚠️ Database Connection Error</strong><br>'
+    +   message
+    + '</div>'
+    + '<div style="background: rgba(255,107,107,0.1); padding: 10px; border-radius: 5px; font-size: 11px; margin-top: 10px;">'
+    + '  <strong>To fix this:</strong><br>'
+    + '  1. Open your Google Sheet<br>'
+    + '  2. Click "File" → "Share" → "Publish to web"<br>'
+    + '  3. Select "CSV" format and click "Publish"<br>'
+    + '  4. Copy the new CSV URL and update the CSV_URL in the code<br>'
+    + '  5. Refresh this page'
+    + '</div>';
   
   refs.loginMsg.innerHTML = errorHtml;
   refs.loginMsg.className = "iml-inline-msg iml-error";
@@ -268,17 +273,18 @@ function parseCSV(csvText) {
           var value = (j < values.length ? values[j].trim() : '');
           
           // Handle common header variations
-          if (header.toLowerCase().includes('username') || header.toLowerCase().includes('user')) {
+          var lower = header.toLowerCase();
+          if (lower.indexOf('username') !== -1 || lower.indexOf('user') !== -1) {
             row['Username'] = value;
-          } else if (header.toLowerCase().includes('password') || header.toLowerCase().includes('pass')) {
+          } else if (lower.indexOf('password') !== -1 || lower.indexOf('pass') !== -1) {
             row['Password'] = value;
-          } else if (header.toLowerCase().includes('status') || header.toLowerCase().includes('active')) {
+          } else if (lower.indexOf('status') !== -1 || lower.indexOf('active') !== -1) {
             row['Status'] = value;
-          } else if (header.toLowerCase().includes('reversal')) {
+          } else if (lower.indexOf('reversal') !== -1) {
             row['Reversal'] = value;
-          } else if (header.toLowerCase().includes('pts') || header.toLowerCase().includes('points')) {
+          } else if (lower.indexOf('pts') !== -1 || lower.indexOf('points') !== -1) {
             row['PTS'] = value;
-          } else if (header.toLowerCase().includes('rate')) {
+          } else if (lower.indexOf('rate') !== -1) {
             row['Rate'] = value;
           } else {
             // Keep original header for other columns
@@ -366,31 +372,33 @@ function clearSession() {
   localStorage.removeItem('iml_session');
 }
 
-// ==== SUBMIT DATA TO SHEETS ===========================================
+// ==== SUBMIT DATA TO SERVER (CGI) =====================================
 function submitQuizData(username, correctAnswers, totalPoints, reversalRate) {
-  // Create form data
+  // Create form data (URL-encoded, strict and CGI-friendly)
   var data = {
-    username: username,
-    correctAnswers: correctAnswers,
-    totalPoints: totalPoints,
-    reversalRate: reversalRate,
+    username: username || "",
+    correctAnswers: String(correctAnswers || 0),
+    totalPoints: String(totalPoints || 0),
+    reversalRate: String(reversalRate || 0),
     timestamp: new Date().toISOString()
   };
   
   console.log("Submitting quiz data:", data);
   
-  // Try to submit to Google Apps Script
+  var body = new URLSearchParams(data).toString();
+
+  // Submit to server-side CGI or similar endpoint
   return fetch(SUBMIT_URL, {
     method: 'POST',
-    mode: 'no-cors', // Use 'no-cors' to avoid CORS issues
+    // Same-origin or CORS controlled by your server; omit mode for default
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
     },
-    body: new URLSearchParams(data).toString()
+    body: body
   })
-  .then(function() {
-    // With 'no-cors', we can't read the response, but we assume it worked
-    console.log('Quiz data submitted successfully (no-cors mode)');
+  .then(function(response) {
+    // For a gov/CGI endpoint, we can log status but keep UI quiet
+    console.log("CGI submit status:", response.status);
     return true;
   })
   .catch(function(error) {
@@ -400,7 +408,11 @@ function submitQuizData(username, correctAnswers, totalPoints, reversalRate) {
     try {
       var submissions = JSON.parse(localStorage.getItem('iml_pending_submissions') || '[]');
       submissions.push({
-        ...data,
+        username: data.username,
+        correctAnswers: data.correctAnswers,
+        totalPoints: data.totalPoints,
+        reversalRate: data.reversalRate,
+        timestamp: data.timestamp,
         localTimestamp: Date.now()
       });
       
@@ -530,15 +542,14 @@ function buildHomePage() {
   var featuresBody = el("div", "panel-body");
   
   var featureList = el("ul", "iml-q-text");
-  featureList.innerHTML = `
-    <li>✓ Real-time quiz system with live scoring</li>
-    <li>✓ Secure authentication with session management</li>
-    <li>✓ Points earning and performance tracking</li>
-    <li>✓ Interactive shop for redeeming rewards</li>
-    <li>✓ Live leaderboard to track progress</li>
-    <li>✓ Integrated help and support system</li>
-    <li>✓ Community chat for collaboration</li>
-  `;
+  featureList.innerHTML = ""
+    + "<li>✓ Real-time quiz system with live scoring</li>"
+    + "<li>✓ Secure authentication with session management</li>"
+    + "<li>✓ Points earning and performance tracking</li>"
+    + "<li>✓ Interactive shop for redeeming rewards</li>"
+    + "<li>✓ Live leaderboard to track progress</li>"
+    + "<li>✓ Integrated help and support system</li>"
+    + "<li>✓ Community chat for collaboration</li>";
   
   append(featuresBody, [featureList]);
   append(features, [featuresHead, featuresBody]);
@@ -778,45 +789,39 @@ function buildHelpPage() {
   var panelBody = el("div", "panel-body");
   
   var helpContent = el("div", "iml-q-text");
-  helpContent.innerHTML = `
-    <h4>Getting Started</h4>
-    <p>Welcome to IML Console! Follow these steps to begin:</p>
-    <ol>
-      <li>Navigate to the EARN section</li>
-      <li>Login with your credentials (provided by admin)</li>
-      <li>Answer the questions in the console</li>
-      <li>Earn points for correct answers</li>
-      <li>Monitor your performance stats</li>
-    </ol>
-    
-    <h4>Understanding Points System</h4>
-    <ul>
-      <li><strong>Base Rate:</strong> ${BASE_RATE} PTS per correct block</li>
-      <li><strong>Points Per Correct:</strong> ${POINTS_PER_CORRECT} PTS</li>
-      <li><strong>Reversal Threshold:</strong> ${REVERSAL_THRESHOLD}% (if exceeded, points may be held)</li>
-      <li><strong>Hold Period:</strong> ${HOLD_DAYS} days</li>
-    </ul>
-    
-    <h4>FAQ</h4>
-    <p><strong>Q: My answers aren't being accepted</strong><br>
-    A: Ensure you're typing the exact answer as provided in your training.</p>
-    
-    <p><strong>Q: How do I redeem points?</strong><br>
-    A: Visit the SHOP section to see available rewards.</p>
-    
-    <p><strong>Q: What is reversal rate?</strong><br>
-    A: This is your error rate. Keep it below ${REVERSAL_THRESHOLD}% to avoid holds.</p>
-    
-    <h4>Database Connection Issues</h4>
-    <p>If you see "Database Unavailable":</p>
-    <ol>
-      <li>Make sure the Google Sheet is published (File → Share → Publish to web)</li>
-      <li>Select CSV format and click "Publish"</li>
-      <li>Copy the new CSV URL</li>
-      <li>Update the CSV_URL in the code</li>
-      <li>Refresh the page</li>
-    </ol>
-  `;
+  helpContent.innerHTML = ""
+    + "<h4>Getting Started</h4>"
+    + "<p>Welcome to IML Console! Follow these steps to begin:</p>"
+    + "<ol>"
+    + "  <li>Navigate to the EARN section</li>"
+    + "  <li>Login with your credentials (provided by admin)</li>"
+    + "  <li>Answer the questions in the console</li>"
+    + "  <li>Earn points for correct answers</li>"
+    + "  <li>Monitor your performance stats</li>"
+    + "</ol>"
+    + "<h4>Understanding Points System</h4>"
+    + "<ul>"
+    + "  <li><strong>Base Rate:</strong> " + BASE_RATE + " PTS per correct block</li>"
+    + "  <li><strong>Points Per Correct:</strong> " + POINTS_PER_CORRECT + " PTS</li>"
+    + "  <li><strong>Reversal Threshold:</strong> " + REVERSAL_THRESHOLD + "% (if exceeded, points may be held)</li>"
+    + "  <li><strong>Hold Period:</strong> " + HOLD_DAYS + " days</li>"
+    + "</ul>"
+    + "<h4>FAQ</h4>"
+    + "<p><strong>Q: My answers aren't being accepted</strong><br>"
+    + "A: Ensure you're typing the exact answer as provided in your training.</p>"
+    + "<p><strong>Q: How do I redeem points?</strong><br>"
+    + "A: Visit the SHOP section to see available rewards.</p>"
+    + "<p><strong>Q: What is reversal rate?</strong><br>"
+    + "A: This is your error rate. Keep it below " + REVERSAL_THRESHOLD + "% to avoid holds.</p>"
+    + "<h4>Database Connection Issues</h4>"
+    + "<p>If you see \"Database Unavailable\":</p>"
+    + "<ol>"
+    + "  <li>Make sure the Google Sheet is published (File → Share → Publish to web)</li>"
+    + "  <li>Select CSV format and click \"Publish\"</li>"
+    + "  <li>Copy the new CSV URL</li>"
+    + "  <li>Update the CSV_URL in the code</li>"
+    + "  <li>Refresh the page</li>"
+    + "</ol>";
   
   append(panelBody, [helpContent]);
   append(panel, [panelHead, panelBody]);
@@ -929,7 +934,7 @@ function findUser(username, password) {
     return null;
   }
 
-  username = username.toLowerCase();
+  username = String(username || "").toLowerCase();
   
   console.log("Looking for user:", username);
   console.log("Total users in database:", state.rows.length);
@@ -939,15 +944,22 @@ function findUser(username, password) {
     
     // Debug: log first few rows
     if (i < 3) {
-      console.log(`Row ${i}:`, r);
+      console.log("Row " + i + ":", r);
     }
     
     // Try to get username with different possible column names
-    var rUsername = (r.Username || r.username || r.User || r.user || r['User Name'] || "").toString().toLowerCase();
+    var rUsername = (
+      r.Username ||
+      r.username ||
+      r.User ||
+      r.user ||
+      r["User Name"] ||
+      ""
+    ).toString().toLowerCase();
     var rPassword = r.Password || r.password || r.Pass || r.pass || "";
     var rStatus = r.Status || r.status || r.Active || r.active || "Inactive";
     
-    console.log(`Comparing: input="${username}" vs db="${rUsername}", password match? ${rPassword === password}`);
+    console.log('Comparing: input="' + username + '" vs db="' + rUsername + '", password match? ' + (rPassword === password));
     
     if (rUsername === username && rPassword === password) {
       console.log("User found:", username);
@@ -960,12 +972,12 @@ function findUser(username, password) {
         reversal: parseFloat(r.Reversal || r.reversal || "0") || 0,
         pts: parseFloat(r.PTS || r.Points || r.points || "0") || 0,
         rate: parseFloat(r.Rate || r.rate || BASE_RATE) || BASE_RATE,
-        q1: r["#1"] || r.Question1 || r.question1 || r.Q1 || r['Question 1'] || "",
-        q2: r["#2"] || r.Question2 || r.question2 || r.Q2 || r['Question 2'] || "",
-        q3: r["#3"] || r.Question3 || r.question3 || r.Q3 || r['Question 3'] || "",
-        ans1: r.Ans1 || r.Answer1 || r.answer1 || r.A1 || r['Answer 1'] || "",
-        ans2: r.Ans2 || r.Answer2 || r.answer2 || r.A2 || r['Answer 2'] || "",
-        ans3: r.Ans3 || r.Answer3 || r.answer3 || r.A3 || r['Answer 3'] || ""
+        q1: r["#1"] || r.Question1 || r.question1 || r.Q1 || r["Question 1"] || "",
+        q2: r["#2"] || r.Question2 || r.question2 || r.Q2 || r["Question 2"] || "",
+        q3: r["#3"] || r.Question3 || r.question3 || r.Q3 || r["Question 3"] || "",
+        ans1: r.Ans1 || r.Answer1 || r.answer1 || r.A1 || r["Answer 1"] || "",
+        ans2: r.Ans2 || r.Answer2 || r.answer2 || r.A2 || r["Answer 2"] || "",
+        ans3: r.Ans3 || r.Answer3 || r.answer3 || r.A3 || r["Answer 3"] || ""
       };
       
       console.log("User data extracted:", userData);
@@ -994,7 +1006,7 @@ function showLoginMessage(msg, type) {
 }
 
 function onLogin(u, p) {
-  refs.loginMsg.style.display = "none";
+  if (refs.loginMsg) refs.loginMsg.style.display = "none";
 
   if (!state.csvLoaded) {
     showLoginMessage("User database still loading. Please wait...", "error");
@@ -1057,8 +1069,10 @@ function applyUserToUI() {
   refs.qMsg.style.display = "block";
 
   // Clear login fields
-  document.getElementById("username").value = "";
-  document.getElementById("password").value = "";
+  var u = document.getElementById("username");
+  var p = document.getElementById("password");
+  if (u) u.value = "";
+  if (p) p.value = "";
 }
 
 function updateHold() {
@@ -1086,9 +1100,9 @@ function onAnswer(idx, inputEl) {
   }
 
   var expected = "";
-  if (idx === 1) expected = state.user.ans1.trim();
-  if (idx === 2) expected = state.user.ans2.trim();
-  if (idx === 3) expected = state.user.ans3.trim();
+  if (idx === 1) expected = (state.user.ans1 || "").trim();
+  if (idx === 2) expected = (state.user.ans2 || "").trim();
+  if (idx === 3) expected = (state.user.ans3 || "").trim();
 
   state.attempts += 1;
   var correct = expected && v.toLowerCase() === expected.toLowerCase();
@@ -1101,11 +1115,11 @@ function onAnswer(idx, inputEl) {
     refs.qMsg.className = "iml-inline-msg iml-success";
     inputEl.value = "";
     
-    // Submit data to Google Sheets
+    // Submit data to server-side CGI
     submitQuizData(state.user.username, state.correct, state.pts, state.reversal)
       .then(function(success) {
         if (success) {
-          console.log("Quiz data submitted to sheets successfully");
+          console.log("Quiz data submitted to server successfully");
         } else {
           console.log("Quiz data saved locally for later sync");
         }
@@ -1116,7 +1130,7 @@ function onAnswer(idx, inputEl) {
   }
   refs.qMsg.style.display = "block";
 
-  // Calculate reversal preview
+  // Calculate reversal preview (capped between 0–5%)
   var ratio = state.correct / state.attempts;
   state.reversal = (1 - ratio) * 5;
   if (state.reversal < 0) state.reversal = 0;
@@ -1141,12 +1155,15 @@ function onLogout() {
   refs.loginPanel.style.display = "block";
 
   // Clear question inputs
-  document.getElementById("q1").value = "";
-  document.getElementById("q2").value = "";
-  document.getElementById("q3").value = "";
+  var q1 = document.getElementById("q1");
+  var q2 = document.getElementById("q2");
+  var q3 = document.getElementById("q3");
+  if (q1) q1.value = "";
+  if (q2) q2.value = "";
+  if (q3) q3.value = "";
 
   // Clear login message
-  refs.loginMsg.style.display = "none";
+  if (refs.loginMsg) refs.loginMsg.style.display = "none";
 }
 
 // ==== DATABASE TEST FUNCTION ==========================================
@@ -1161,11 +1178,10 @@ function testDatabaseConnection() {
   fetch(CSV_URL, { mode: 'cors', cache: 'no-store' })
     .then(function(response) {
       if (dbStatus) {
-        dbStatus.innerHTML = `
-          <strong>✓ Database Test Result:</strong><br>
-          Status: ${response.status} ${response.statusText}<br>
-          Connection: Successful
-        `;
+        dbStatus.innerHTML = ""
+          + "<strong>✓ Database Test Result:</strong><br>"
+          + "Status: " + response.status + " " + response.statusText + "<br>"
+          + "Connection: Successful";
         dbStatus.className = "iml-inline-msg iml-success";
       }
       console.log("Database test successful:", response.status);
@@ -1179,11 +1195,10 @@ function testDatabaseConnection() {
     })
     .catch(function(error) {
       if (dbStatus) {
-        dbStatus.innerHTML = `
-          <strong>✗ Database Test Result:</strong><br>
-          Error: ${error.message}<br>
-          Please check if the Google Sheet is published.
-        `;
+        dbStatus.innerHTML = ""
+          + "<strong>✗ Database Test Result:</strong><br>"
+          + "Error: " + error.message + "<br>"
+          + "Please check if the Google Sheet is published.";
         dbStatus.className = "iml-inline-msg iml-error";
       }
       console.error("Database test failed:", error);
@@ -1194,8 +1209,10 @@ function testDatabaseConnection() {
 function setupEventListeners() {
   if (refs.loginBtn) {
     refs.loginBtn.addEventListener("click", function() {
-      var username = document.getElementById("username")?.value.trim();
-      var password = document.getElementById("password")?.value.trim();
+      var usernameEl = document.getElementById("username");
+      var passwordEl = document.getElementById("password");
+      var username = usernameEl ? usernameEl.value.trim() : "";
+      var password = passwordEl ? passwordEl.value.trim() : "";
       onLogin(username, password);
     });
   }
@@ -1204,8 +1221,9 @@ function setupEventListeners() {
   if (passwordInput) {
     passwordInput.addEventListener("keyup", function(e) {
       if (e.key === "Enter") {
-        var username = document.getElementById("username")?.value.trim();
-        var password = document.getElementById("password")?.value.trim();
+        var usernameEl = document.getElementById("username");
+        var username = usernameEl ? usernameEl.value.trim() : "";
+        var password = passwordInput.value.trim();
         onLogin(username, password);
       }
     });
@@ -1222,7 +1240,7 @@ function setupEventListeners() {
     });
   }
 
-  var logoutBtn = document.querySelector('button[class*="btn-iml"]:last-child');
+  var logoutBtn = document.querySelector('button.btn-iml.btn-sm:last-of-type');
   if (logoutBtn && logoutBtn.textContent === "Logout") {
     logoutBtn.addEventListener("click", function() {
       onLogout();
@@ -1265,11 +1283,10 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Update database status
     if (dbStatus) {
-      dbStatus.innerHTML = `
-        <strong>✓ Database Ready:</strong><br>
-        Loaded ${rows.length} user accounts<br>
-        Connection: Stable
-      `;
+      dbStatus.innerHTML = ""
+        + "<strong>✓ Database Ready:</strong><br>"
+        + "Loaded " + rows.length + " user accounts<br>"
+        + "Connection: Stable";
       dbStatus.className = "iml-inline-msg iml-success";
     }
     
@@ -1279,14 +1296,14 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Update database status
     if (dbStatus) {
-      dbStatus.innerHTML = `
-        <strong>✗ Database Error:</strong><br>
-        Failed to load user data<br>
-        Check console for details
-      `;
+      dbStatus.innerHTML = ""
+        + "<strong>✗ Database Error:</strong><br>"
+        + "Failed to load user data<br>"
+        + "Check console for details";
       dbStatus.className = "iml-inline-msg iml-error";
     }
     
     setupEventListeners();
   });
 });
+</script>
