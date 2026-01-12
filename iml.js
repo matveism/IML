@@ -1,6 +1,6 @@
 // ==== CONFIG ==========================================================
 // REPLACE THIS URL WITH YOUR GOOGLE SHEETS CSV LINK
-var CSV_URL = "https://docs.google.com/spreadsheets/d/11IIhvOCBUS7jsuEArId2ARvmWrfH5RoMKVZegCjz0ek/export?format=csv&gid=0";
+var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKqiArVi8o0JiLRUEsN-9VvxLrozyKFRpCl3NNFLAvb_VyVNki3Sm1ogfC74MJcaMToFnjJEpMUiKD/pub?gid=0&single=true&output=csv";
 
 var BASE_RATE = 10;
 var POINTS_PER_CORRECT = 5;
