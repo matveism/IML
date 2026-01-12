@@ -1,5 +1,5 @@
 // ==== CONFIG ==========================================================
-// REPLACE WITH YOUR GOOGLE APPS SCRIPT WEB APP URL
+// Google Apps Script Web App URL
 var API_BASE_URL = "https://script.google.com/macros/s/AKfycbxWE8QgOCifiQzjWJLAaX4Vz-BPYIKEuHDNnY7fAQgVTM-c0gMVlygSeG1V50IRS1eeLA/exec";
 
 var BASE_RATE = 10;
@@ -28,96 +28,81 @@ function el(t, c, txt) {
   if (txt !== undefined && txt !== null) e.textContent = txt;
   return e;
 }
+
 function append(p, children) {
   children.forEach(function(ch){ p.appendChild(ch); });
   return p;
 }
 
-// ==== API FUNCTIONS ===================================================
+// ==== SIMPLE GOOGLE SHEETS API ========================================
+// Simple function to handle Google Apps Script responses
+function parseGASResponse(text) {
+  try {
+    // Try direct JSON parse
+    return JSON.parse(text);
+  } catch (e1) {
+    try {
+      // Try to extract JSON from HTML wrapper
+      const jsonMatch = text.match(/{[\s\S]*}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    } catch (e2) {
+      console.log("Couldn't parse response as JSON:", text.substring(0, 200));
+    }
+    return null;
+  }
+}
+
+// Get all users from Google Sheets
 async function fetchUsers() {
   try {
-    const url = `${API_BASE_URL}?action=getUsers&t=${Date.now()}`;
-    console.log('Fetching from:', url);
-    
-    const response = await fetch(url);
+    console.log("Fetching users from Google Sheets...");
+    const response = await fetch(`${API_BASE_URL}?action=getUsers&t=${Date.now()}`);
     const text = await response.text();
     
-    console.log('Raw response (first 500 chars):', text.substring(0, 500));
+    const data = parseGASResponse(text);
     
-    // Google Apps Script often returns HTML-wrapped JSON
-    // Try to extract JSON from the response
-    let data;
-    try {
-      // First try to parse as pure JSON
-      data = JSON.parse(text);
-    } catch (e1) {
-      console.log('Direct JSON parse failed, trying to extract JSON from HTML');
-      
-      // Try to extract JSON from HTML response
-      const jsonMatch = text.match(/\{.*\}/s);
-      if (jsonMatch) {
-        try {
-          data = JSON.parse(jsonMatch[0]);
-        } catch (e2) {
-          console.error('Failed to parse extracted JSON');
-          throw new Error('Invalid JSON response from server');
-        }
-      } else {
-        // If no JSON found, check if it's an authorization page
-        if (text.includes('Google Apps Script')) {
-          throw new Error('Script authorization required. Please open the script URL in browser first.');
-        }
-        throw new Error('No JSON data found in response');
-      }
-    }
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to load users');
+    if (!data || !data.success) {
+      console.error("Failed to fetch users:", data?.error);
+      return getDemoUsers(); // Fallback to demo
     }
     
     state.rows = data.users || [];
     state.loaded = true;
     
-    // Update status
     if (refs.dataStatus) {
-      refs.dataStatus.innerHTML = `<strong><i class='fa fa-check'></i> Database Ready:</strong> ${state.rows.length} user accounts loaded`;
+      refs.dataStatus.innerHTML = `<strong>✓ Database Ready:</strong> ${state.rows.length} users loaded`;
       refs.dataStatus.className = "iml-data-status iml-success";
     }
     
-    // Enable login button
     if (refs.loginBtn) {
       refs.loginBtn.disabled = false;
-      refs.loginBtn.innerHTML = "<i class='fa fa-sign-in'></i> Login to Console";
-    }
-    
-    // Auto-login if session exists
-    if (state.sessionId) {
-      await checkSession();
+      refs.loginBtn.innerHTML = "Login to Console";
     }
     
     return state.rows;
-  } catch (error) {
-    console.error('API Error:', error);
     
-    // Fallback to demo data
+  } catch (error) {
+    console.error("Error fetching users:", error);
     state.rows = getDemoUsers();
     state.loaded = true;
     
     if (refs.dataStatus) {
-      refs.dataStatus.innerHTML = `<strong><i class='fa fa-exclamation-triangle'></i> Using Demo Data:</strong> ${state.rows.length} demo users loaded (Sheet connection failed)`;
+      refs.dataStatus.innerHTML = `<strong>⚠️ Using Demo Data:</strong> Connection failed`;
       refs.dataStatus.className = "iml-data-status iml-warning";
     }
     
     if (refs.loginBtn) {
       refs.loginBtn.disabled = false;
-      refs.loginBtn.innerHTML = "<i class='fa fa-sign-in'></i> Login (Demo Mode)";
+      refs.loginBtn.innerHTML = "Login (Demo Mode)";
     }
     
     return state.rows;
   }
 }
 
-// Demo users for fallback
+// DEMO USERS FOR FALLBACK
 function getDemoUsers() {
   return [
     {
@@ -155,180 +140,79 @@ function getDemoUsers() {
   ];
 }
 
-async function checkSession() {
-  if (!state.sessionId) return false;
-  
+// UPDATE USER IN GOOGLE SHEETS
+async function updateUserInSheet(username, updates) {
   try {
-    const url = `${API_BASE_URL}?action=checkSession&sessionId=${state.sessionId}&t=${Date.now()}`;
-    const response = await fetch(url);
+    console.log("Updating sheet for user:", username, updates);
+    
+    const formData = new FormData();
+    formData.append('action', 'updateUser');
+    formData.append('username', username);
+    formData.append('updates', JSON.stringify(updates));
+    
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData
+    });
+    
     const text = await response.text();
+    const data = parseGASResponse(text);
     
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      const jsonMatch = text.match(/\{.*\}/s);
-      if (jsonMatch) data = JSON.parse(jsonMatch[0]);
-      else return false;
-    }
-    
-    if (data.success && data.valid && data.user) {
-      await loginWithUser(data.user);
+    if (data && data.success) {
+      console.log("✅ Sheet updated successfully!");
       return true;
     } else {
-      localStorage.removeItem('iml_sessionId');
-      state.sessionId = null;
+      console.error("❌ Sheet update failed:", data?.error);
       return false;
     }
+    
   } catch (error) {
-    console.error('Session check failed:', error);
+    console.error("Error updating sheet:", error);
     return false;
   }
 }
 
-async function createSession(username) {
+// SUBMIT ANSWER AND UPDATE SHEET
+async function submitAnswerToSheet(username, questionId, answer) {
   try {
-    const response = await fetch(API_BASE_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        action: 'createSession',
-        username: username
-      })
-    });
+    console.log("Submitting answer for user:", username, "Q:", questionId, "A:", answer);
     
-    const text = await response.text();
-    let data;
-    
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      const jsonMatch = text.match(/\{.*\}/s);
-      if (jsonMatch) data = JSON.parse(jsonMatch[0]);
-      else return null;
-    }
-    
-    if (data.success && data.sessionId) {
-      state.sessionId = data.sessionId;
-      localStorage.setItem('iml_sessionId', data.sessionId);
-      return data.sessionId;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Create session failed:', error);
-    // Create local session
-    state.sessionId = 'local_' + Date.now();
-    localStorage.setItem('iml_sessionId', state.sessionId);
-    return state.sessionId;
-  }
-}
-
-async function updateSheet(username, updates) {
-  try {
-    console.log('Updating sheet for:', username, updates);
+    const formData = new FormData();
+    formData.append('action', 'submitAnswer');
+    formData.append('username', username);
+    formData.append('questionId', questionId.toString());
+    formData.append('answer', answer);
     
     const response = await fetch(API_BASE_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        action: 'updateUser',
-        username: username,
-        updates: updates
-      })
+      body: formData
     });
     
     const text = await response.text();
-    console.log('Update response:', text.substring(0, 200));
+    const data = parseGASResponse(text);
     
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      const jsonMatch = text.match(/\{.*\}/s);
-      if (jsonMatch) data = JSON.parse(jsonMatch[0]);
-      else return false;
+    if (data && data.success) {
+      console.log("✅ Answer submitted to sheet!");
+      return {
+        success: true,
+        correct: data.correct,
+        newPts: data.newPts || 0,
+        message: data.message || "Answer submitted"
+      };
+    } else {
+      console.error("❌ Answer submission failed");
+      return {
+        success: false,
+        message: "Failed to save to sheet"
+      };
     }
     
-    return data.success || false;
   } catch (error) {
-    console.error('Update sheet failed:', error);
-    return false;
-  }
-}
-
-async function submitAnswerToSheet(username, questionId, answer, currentPts) {
-  try {
-    const response = await fetch(API_BASE_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        action: 'submitAnswer',
-        username: username,
-        questionId: questionId,
-        answer: answer,
-        currentPts: currentPts
-      })
-    });
-    
-    const text = await response.text();
-    
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      const jsonMatch = text.match(/\{.*\}/s);
-      if (jsonMatch) data = JSON.parse(jsonMatch[0]);
-      else throw new Error('Invalid response');
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Submit answer failed:', error);
-    // Return success for offline/demo mode
+    console.error("Error submitting answer:", error);
     return {
-      success: true,
-      correct: true,
-      newPts: currentPts + 5,
-      message: 'Answer submitted (demo mode)'
+      success: false,
+      message: "Network error"
     };
-  }
-}
-
-async function logoutFromSheet(username) {
-  try {
-    const response = await fetch(API_BASE_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        action: 'logout',
-        username: username
-      })
-    });
-    
-    const text = await response.text();
-    
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      const jsonMatch = text.match(/\{.*\}/s);
-      if (jsonMatch) data = JSON.parse(jsonMatch[0]);
-      else return false;
-    }
-    
-    return data.success || false;
-  } catch (error) {
-    console.error('Logout failed:', error);
-    return false;
   }
 }
 
@@ -401,6 +285,7 @@ function injectAssets() {
   .iml-data-status.iml-error{border-left-color:#ff6b6b;}
   .iml-data-status.iml-warning{border-left-color:#ffa726;}
   .iml-saving{position:fixed;bottom:60px;right:20px;background:#1a7b33;color:white;padding:8px 12px;border-radius:4px;font-size:11px;display:none;z-index:10000;}
+  .iml-offline{position:fixed;bottom:100px;right:20px;background:#ff6b6b;color:white;padding:8px 12px;border-radius:4px;font-size:11px;display:none;z-index:10000;}
   
   /* Mobile Bottom Navigation */
   .iml-bottom-nav{display:none;}
@@ -442,6 +327,7 @@ function injectAssets() {
     }
     .iml-main{padding-bottom:70px;}
     .iml-saving{bottom:70px;}
+    .iml-offline{bottom:110px;}
   }
   
   @media(min-width:768px){
@@ -462,6 +348,12 @@ function buildLayout() {
   savingIndicator.innerHTML = "<i class='fa fa-save'></i> Saving...";
   savingIndicator.id = "savingIndicator";
   shell.appendChild(savingIndicator);
+
+  // Offline indicator
+  var offlineIndicator = el("div", "iml-offline");
+  offlineIndicator.innerHTML = "<i class='fa fa-wifi'></i> Offline Mode";
+  offlineIndicator.id = "offlineIndicator";
+  shell.appendChild(offlineIndicator);
 
   // DESKTOP NAV
   var nav = el("nav", "navbar navbar-iml");
@@ -495,7 +387,7 @@ function buildLayout() {
   nav.appendChild(navC);
 
   // PROMO BAR
-  var promo = el("div", "iml-promo", "Secure Login - Live Data Sync with Google Sheets");
+  var promo = el("div", "iml-promo", "Secure Login - Live Google Sheets Sync");
 
   // MAIN
   var main = el("div", "iml-main container-fluid");
@@ -505,11 +397,11 @@ function buildLayout() {
 
   // LOGIN PANEL
   var pLogin = el("div", "panel panel-iml");
-  var pLH = el("div", "panel-heading", "<i class='fa fa-lock'></i> User Authentication // Live Database");
-  pLH.innerHTML = "<i class='fa fa-lock'></i> User Authentication // Live Database";
+  var pLH = el("div", "panel-heading", "<i class='fa fa-lock'></i> User Authentication");
+  pLH.innerHTML = "<i class='fa fa-lock'></i> User Authentication";
   var pLB = el("div", "panel-body");
   
-  refs.dataStatus = el("div", "iml-data-status iml-loading", "Connecting to user database...");
+  refs.dataStatus = el("div", "iml-data-status iml-loading", "Connecting to Google Sheets...");
   pLB.appendChild(refs.dataStatus);
   
   refs.loginMsg = el("div", "iml-inline-msg");
@@ -539,8 +431,8 @@ function buildLayout() {
 
   var r2 = el("div", "row");
   var cBtn = el("div", "col-xs-12");
-  var btnLogin = el("button", "btn btn-iml btn-block", "Loading Database...");
-  btnLogin.innerHTML = "<i class='fa fa-sign-in'></i> Loading Database...";
+  var btnLogin = el("button", "btn btn-iml btn-block", "Loading...");
+  btnLogin.innerHTML = "<i class='fa fa-sign-in'></i> Loading...";
   btnLogin.type = "button";
   btnLogin.disabled = true;
   refs.loginBtn = btnLogin;
@@ -550,17 +442,17 @@ function buildLayout() {
   append(pLB, [r1, el("hr"), r2]);
   append(pLogin, [pLH, pLB]);
 
-  // DASHBOARD PANEL (HIDDEN INITIALLY)
+  // DASHBOARD PANEL
   var pDash = el("div", "panel panel-iml");
   pDash.style.display = "none";
-  var dH = el("div", "panel-heading", "<i class='fa fa-dashboard'></i> Earning Console // Real-time Sync");
-  dH.innerHTML = "<i class='fa fa-dashboard'></i> Earning Console // Real-time Sync";
+  var dH = el("div", "panel-heading", "<i class='fa fa-dashboard'></i> Earning Console");
+  dH.innerHTML = "<i class='fa fa-dashboard'></i> Earning Console";
   var dB = el("div", "panel-body");
 
   var stRow = el("div", "row");
   var stCol = el("div", "col-xs-12");
-  var stLbl = el("span", "iml-label", "<i class='fa fa-info-circle'></i> Account status: ");
-  stLbl.innerHTML = "<i class='fa fa-info-circle'></i> Account status: ";
+  var stLbl = el("span", "iml-label", "<i class='fa fa-info-circle'></i> Account: ");
+  stLbl.innerHTML = "<i class='fa fa-info-circle'></i> Account: ";
   var stChip = el("span", "iml-status-chip", "Inactive");
   stCol.appendChild(stLbl);
   stCol.appendChild(stChip);
@@ -579,17 +471,17 @@ function buildLayout() {
     return box;
   }
   
-  var sRate = mkStat("Rate", "rate", "PTS per correct block", "fa-bolt");
-  var sPts = mkStat("PTS", "pts", "Live performance score", "fa-star");
-  var sRev = mkStat("Reversal", "rev", "Quality check % (7d preview)", "fa-line-chart");
-  var sHold = mkStat("Hold", "hold", "PTS on hold if reversal ≥ 3%", "fa-clock-o");
+  var sRate = mkStat("Rate", "rate", "PTS per correct", "fa-bolt");
+  var sPts = mkStat("PTS", "pts", "Current score", "fa-star");
+  var sRev = mkStat("Reversal", "rev", "Quality check %", "fa-line-chart");
+  var sHold = mkStat("Hold", "hold", "PTS on hold", "fa-clock-o");
   append(statGrid, [sRate, sPts, sRev, sHold]);
 
   refs.qMsg = el("div", "iml-inline-msg");
   refs.qMsg.style.display = "none";
 
-  var qTitle = el("div", "iml-label", "<i class='fa fa-question-circle'></i> Answer console: type exact response");
-  qTitle.innerHTML = "<i class='fa fa-question-circle'></i> Answer console: type exact response";
+  var qTitle = el("div", "iml-label", "<i class='fa fa-question-circle'></i> Answer console");
+  qTitle.innerHTML = "<i class='fa fa-question-circle'></i> Answer console";
   qTitle.style.margin = "15px 0 10px";
 
   function makeQBlock(idx) {
@@ -598,11 +490,11 @@ function buildLayout() {
     var lab = el("div", "iml-q-label", "#" + idx);
     var txt = el("div", "iml-q-text", "Loading question...");
     var inp = el("input", "iml-input form-control");
-    inp.placeholder = "Type answer for #" + idx + "...";
+    inp.placeholder = "Type answer for #" + idx;
     inp.id = "q" + idx;
     var btnRow = el("div", "text-right");
-    var btn = el("button", "btn btn-iml btn-sm", "Submit #" + idx);
-    btn.innerHTML = "<i class='fa fa-paper-plane'></i> Submit #" + idx;
+    var btn = el("button", "btn btn-iml btn-sm", "Submit");
+    btn.innerHTML = "<i class='fa fa-paper-plane'></i> Submit";
     btn.dataset.qid = idx;
     btnRow.appendChild(btn);
     append(wrap, [lab, txt, inp, btnRow]);
@@ -626,26 +518,23 @@ function buildLayout() {
   refs.loginPanel = pLogin;
   refs.dashPanel = pDash;
 
-  // RIGHT: INFO PANEL
+  // RIGHT PANEL
   var pInfo = el("div", "panel panel-iml");
-  var infoH = el("div", "panel-heading", "<i class='fa fa-info-circle'></i> System Information");
-  infoH.innerHTML = "<i class='fa fa-info-circle'></i> System Information";
+  var infoH = el("div", "panel-heading", "<i class='fa fa-info-circle'></i> Info");
+  infoH.innerHTML = "<i class='fa fa-info-circle'></i> Info";
   var infoB = el("div", "panel-body");
   var infoContent = el("div", "iml-q-text");
   infoContent.innerHTML = 
-    "<strong><i class='fa fa-database'></i> Real-time Sync:</strong><br>" +
-    "✓ Live Google Sheets Sync<br>" +
-    "✓ Auto-save all changes<br>" +
-    "✓ Session persistence<br>" +
-    "✓ Secure authentication<br><br>" +
-    "<strong><i class='fa fa-cogs'></i> How it works:</strong><br>" +
+    "<strong>Google Sheets Sync:</strong><br>" +
+    "✓ Real-time updates<br>" +
+    "✓ Points saved instantly<br>" +
+    "✓ Session persistence<br><br>" +
+    "<strong>How it works:</strong><br>" +
     "• Login with credentials<br>" +
-    "• Answers auto-save to sheet<br>" +
-    "• Each correct answer = +5 PTS<br>" +
-    "• Points update in real-time<br>" +
-    "• Session saved automatically<br><br>" +
-    "<strong><i class='fa fa-exclamation-circle'></i> Note:</strong><br>" +
-    "All changes sync to Google Sheets";
+    "• Answer questions to earn PTS<br>" +
+    "• Each correct = +5 PTS<br>" +
+    "• PTS save to Google Sheets<br>" +
+    "• Questions disappear after answer";
   append(infoB, [infoContent]);
   append(pInfo, [infoH, infoB]);
 
@@ -656,7 +545,7 @@ function buildLayout() {
   append(shell, [nav, promo, main]);
   document.body.appendChild(shell);
 
-  // MOBILE BOTTOM NAV
+  // MOBILE NAV
   var bottom = el("div", "iml-bottom-nav");
   var bottomItems = [
     {text: "HOME", icon: "fa-home", active: true},
@@ -692,11 +581,8 @@ function buildLayout() {
     });
   });
 
-  btnLogout.addEventListener("click", function() {
-    onLogout();
-  });
+  btnLogout.addEventListener("click", onLogout);
 
-  // Mobile nav click handlers
   var mobileBtns = bottom.querySelectorAll("button");
   mobileBtns.forEach(function(btn, idx) {
     btn.addEventListener("click", function() {
@@ -706,23 +592,42 @@ function buildLayout() {
   });
 }
 
-// ==== SHOW SAVING INDICATOR ==========================================
+// ==== UI HELPERS ======================================================
 function showSaving() {
   var indicator = document.getElementById('savingIndicator');
   if (indicator) {
     indicator.style.display = 'block';
     indicator.innerHTML = "<i class='fa fa-save'></i> Saving to Google Sheets...";
-    
-    setTimeout(function() {
+    setTimeout(() => {
       indicator.innerHTML = "<i class='fa fa-check'></i> Saved!";
-      setTimeout(function() {
-        indicator.style.display = 'none';
-      }, 1000);
+      setTimeout(() => indicator.style.display = 'none', 1000);
     }, 1000);
   }
 }
 
-// ==== LOGIN / USER ====================================================
+function showOffline() {
+  var indicator = document.getElementById('offlineIndicator');
+  if (indicator) {
+    indicator.style.display = 'block';
+    setTimeout(() => indicator.style.display = 'none', 3000);
+  }
+}
+
+function showLoginMessage(msg, type) {
+  if (!refs.loginMsg) return;
+  refs.loginMsg.textContent = msg;
+  refs.loginMsg.className = "iml-inline-msg";
+  refs.loginMsg.style.display = "block";
+  
+  refs.loginMsg.classList.remove("text-success", "text-danger", "text-info", "text-warning");
+  
+  if (type === "error") refs.loginMsg.classList.add("text-danger");
+  else if (type === "success") refs.loginMsg.classList.add("text-success");
+  else if (type === "info") refs.loginMsg.classList.add("text-info");
+  else if (type === "warning") refs.loginMsg.classList.add("text-warning");
+}
+
+// ==== USER FUNCTIONS ==================================================
 function findUser(username, password) {
   if (!state.loaded) {
     showLoginMessage("Database not loaded. Please wait...", "error");
@@ -748,65 +653,29 @@ function findUser(username, password) {
         q3: r["#3"] || "",
         ans1: r.Ans1 || "",
         ans2: r.Ans2 || "",
-        ans3: r.Ans3 || "",
-        sessionId: r.SessionID || ""
+        ans3: r.Ans3 || ""
       };
     }
   }
   return null;
 }
 
-function showLoginMessage(msg, type) {
-  if (!refs.loginMsg) return;
-  refs.loginMsg.textContent = msg;
-  refs.loginMsg.className = "iml-inline-msg";
-  refs.loginMsg.style.display = "block";
-  
-  refs.loginMsg.classList.remove("text-success", "text-danger", "text-info", "text-warning");
-  
-  if (type === "error") {
-    refs.loginMsg.classList.add("text-danger");
-  } else if (type === "success") {
-    refs.loginMsg.classList.add("text-success");
-  } else if (type === "info") {
-    refs.loginMsg.classList.add("text-info");
-  } else if (type === "warning") {
-    refs.loginMsg.classList.add("text-warning");
-  }
-}
-
-async function loginWithUser(userData) {
-  state.user = userData;
-  state.pts = userData.pts;
-  state.reversal = userData.reversal;
-  state.correct = 0;
-  state.attempts = 0;
-  state.answeredQuestions = [];
-  state.sessionId = userData.sessionId || state.sessionId;
-
-  showLoginMessage("Auto-login successful! Loading dashboard...", "success");
-  
-  setTimeout(function() {
-    applyUserToUI();
-  }, 500);
-}
-
 async function onLogin(u, p) {
   refs.loginMsg.style.display = "none";
 
   if (!state.loaded) {
-    showLoginMessage("User database still loading. Please wait...", "error");
+    showLoginMessage("Database still loading...", "error");
     return;
   }
 
   if (!u || !p) {
-    showLoginMessage("Please enter both username and password.", "error");
+    showLoginMessage("Enter username and password", "error");
     return;
   }
 
   var user = findUser(u, p);
   if (!user) {
-    showLoginMessage("Invalid username or password.", "error");
+    showLoginMessage("Invalid credentials", "error");
     return;
   }
 
@@ -817,26 +686,16 @@ async function onLogin(u, p) {
   state.attempts = 0;
   state.answeredQuestions = [];
 
-  // Create session and save to Google Sheets
-  var sessionId = await createSession(u);
-  if (sessionId) {
-    state.sessionId = sessionId;
-    user.sessionId = sessionId;
-  }
-
-  showLoginMessage("Login successful! Creating session...", "success");
+  showLoginMessage("Login successful!", "success");
   
-  setTimeout(function() {
-    applyUserToUI();
-  }, 500);
+  setTimeout(applyUserToUI, 500);
 }
 
 function applyUserToUI() {
-  // Switch panels
   refs.loginPanel.style.display = "none";
   refs.dashPanel.style.display = "block";
 
-  // Update status chip
+  // Status chip
   if ((state.user.status || "").toLowerCase() === "active") {
     refs.statusChip.classList.remove("inactive");
     refs.statusChip.textContent = "Active";
@@ -845,13 +704,13 @@ function applyUserToUI() {
     refs.statusChip.textContent = state.user.status || "Inactive";
   }
 
-  // Update stats
+  // Stats
   refs.stat_rate.textContent = BASE_RATE.toFixed(0);
   refs.stat_pts.textContent = state.pts.toFixed(2);
   refs.stat_rev.textContent = state.reversal.toFixed(2) + "%";
   updateHold();
 
-  // Update questions
+  // Questions
   if (state.user.q1) {
     refs.qBlocks[0].text.textContent = state.user.q1;
     resetQuestionDisplay(1);
@@ -865,7 +724,7 @@ function applyUserToUI() {
     resetQuestionDisplay(3);
   }
 
-  refs.qMsg.textContent = "Type your exact answers for #1, #2, #3. 1 correct out of 3 = 5 PTS.";
+  refs.qMsg.textContent = "Type exact answers. Correct = +5 PTS.";
   refs.qMsg.className = "iml-inline-msg text-info";
   refs.qMsg.style.display = "block";
 
@@ -880,7 +739,7 @@ function resetQuestionDisplay(qId) {
   qBlock.input.disabled = false;
   qBlock.input.value = "";
   qBlock.button.disabled = false;
-  qBlock.button.innerHTML = "<i class='fa fa-paper-plane'></i> Submit #" + qId;
+  qBlock.button.innerHTML = "<i class='fa fa-paper-plane'></i> Submit";
 }
 
 function updateHold() {
@@ -891,9 +750,10 @@ function updateHold() {
   refs.stat_hold.textContent = hold.toFixed(2) + " PTS / " + HOLD_DAYS + " days";
 }
 
+// ==== MAIN ANSWER FUNCTION ============================================
 async function onAnswer(idx, inputEl) {
   if (!state.user) {
-    refs.qMsg.textContent = "Please login first to submit answers.";
+    refs.qMsg.textContent = "Please login first";
     refs.qMsg.className = "iml-inline-msg text-danger";
     refs.qMsg.style.display = "block";
     return;
@@ -901,7 +761,7 @@ async function onAnswer(idx, inputEl) {
 
   var v = (inputEl.value || "").trim();
   if (!v) {
-    refs.qMsg.textContent = "Please enter an answer for #" + idx + ".";
+    refs.qMsg.textContent = "Enter an answer for #" + idx;
     refs.qMsg.className = "iml-inline-msg text-warning";
     refs.qMsg.style.display = "block";
     return;
@@ -928,12 +788,12 @@ async function onAnswer(idx, inputEl) {
     state.pts += POINTS_PER_CORRECT;
     state.answeredQuestions.push(idx);
     
-    // Update UI immediately
+    // Update UI
     refs.stat_pts.textContent = state.pts.toFixed(2);
-    refs.qMsg.textContent = "Correct for #" + idx + "! +5 PTS added. Updating sheet...";
+    refs.qMsg.textContent = "Correct! +5 PTS. Saving to Google Sheets...";
     refs.qMsg.className = "iml-inline-msg text-success";
     
-    // Disable the question block
+    // Disable question
     var qBlock = refs.qBlocks[idx - 1];
     qBlock.root.classList.add("answered");
     qBlock.input.disabled = true;
@@ -944,43 +804,46 @@ async function onAnswer(idx, inputEl) {
     // Show saving indicator
     showSaving();
     
-    // UPDATE GOOGLE SHEET WITH NEW POINTS
+    // CRITICAL: UPDATE GOOGLE SHEETS
     try {
-      // Method 1: Submit answer via API
-      var result = await submitAnswerToSheet(state.user.username, idx, v, state.pts);
+      // Step 1: Submit answer to sheet
+      const result = await submitAnswerToSheet(state.user.username, idx, v);
       
       if (result.success) {
-        // Update from server response
-        state.pts = result.newPts || state.pts;
-        refs.stat_pts.textContent = state.pts.toFixed(2);
-        
-        // Also update local user object
-        state.user.pts = state.pts;
-        
-        refs.qMsg.textContent = result.message + " Sheet updated!";
-        
-        // Method 2: Also update user data directly
-        await updateSheet(state.user.username, {
+        // Step 2: Update points in sheet
+        const updateResult = await updateUserInSheet(state.user.username, {
           PTS: state.pts.toFixed(2),
           Reversal: state.reversal.toFixed(2)
         });
+        
+        if (updateResult) {
+          refs.qMsg.textContent = "✓ Correct! +5 PTS saved to Google Sheets!";
+          console.log("✅ Sheet updated successfully!");
+        } else {
+          refs.qMsg.textContent = "✓ Correct! +5 PTS (Sheet update failed)";
+          showOffline();
+        }
+      } else {
+        refs.qMsg.textContent = "✓ Correct! +5 PTS (Save failed)";
+        showOffline();
       }
     } catch (error) {
-      console.error("Failed to update sheet:", error);
-      refs.qMsg.textContent = "Correct! +5 PTS (Sheet update failed)";
+      console.error("Error updating sheet:", error);
+      refs.qMsg.textContent = "✓ Correct! +5 PTS (Network error)";
+      showOffline();
     }
     
-    // Clear the question text
-    setTimeout(function() {
+    // Update question text
+    setTimeout(() => {
       qBlock.text.textContent = "✓ Answered correctly";
     }, 1000);
   } else {
-    refs.qMsg.textContent = "Incorrect for #" + idx + ". Please try again.";
+    refs.qMsg.textContent = "Incorrect. Try again.";
     refs.qMsg.className = "iml-inline-msg text-warning";
   }
   refs.qMsg.style.display = "block";
 
-  // Calculate reversal preview
+  // Update reversal
   var ratio = state.correct / state.attempts;
   state.reversal = (1 - ratio) * 5;
   if (state.reversal < 0) state.reversal = 0;
@@ -990,39 +853,26 @@ async function onAnswer(idx, inputEl) {
   updateHold();
 }
 
-async function onLogout() {
-  // Clear session from Google Sheets
-  if (state.user && state.user.username) {
-    await logoutFromSheet(state.user.username);
-  }
-  
-  // Clear local storage
-  localStorage.removeItem('iml_sessionId');
-  
-  // Reset state
+function onLogout() {
   state.user = null;
   state.pts = 0;
   state.reversal = 0;
   state.correct = 0;
   state.attempts = 0;
   state.answeredQuestions = [];
-  state.sessionId = null;
 
-  // Switch panels back
   refs.dashPanel.style.display = "none";
   refs.loginPanel.style.display = "block";
 
-  // Clear question inputs
   refs.qBlocks.forEach(function(q, idx) {
     q.input.value = "";
     q.text.textContent = "Loading question...";
     q.root.classList.remove("answered");
     q.input.disabled = false;
     q.button.disabled = false;
-    q.button.innerHTML = "<i class='fa fa-paper-plane'></i> Submit #" + (idx + 1);
+    q.button.innerHTML = "<i class='fa fa-paper-plane'></i> Submit";
   });
 
-  // Clear login message
   refs.loginMsg.style.display = "none";
 }
 
@@ -1031,10 +881,10 @@ document.addEventListener("DOMContentLoaded", function() {
   injectAssets();
   buildLayout();
 
-  // Start loading user data
+  // Load users
   fetchUsers().then(function(rows) {
-    console.log("✅ Successfully loaded " + rows.length + " user records");
+    console.log("Loaded " + rows.length + " users");
   }).catch(function(error) {
-    console.error("❌ Failed to load database:", error);
+    console.error("Load error:", error);
   });
 });
