@@ -1,6 +1,6 @@
 // ==== CONFIG ==========================================================
-// Google Sheets CSV URL - Using the export format for your sheet
-var CSV_URL = "https://docs.google.com/spreadsheets/d/15-9QTGGm51t_DwxG4VCmxtK_hn2JcEiIORQTE-5QtcY/export?format=csv&gid=0";
+// REPLACE THIS URL WITH YOUR GOOGLE SHEETS CSV LINK
+var CSV_URL = "https://docs.google.com/spreadsheets/d/11IIhvOCBUS7jsuEArId2ARvmWrfH5RoMKVZegCjz0ek/export?format=csv&gid=0";
 
 var BASE_RATE = 10;
 var POINTS_PER_CORRECT = 5;
@@ -15,7 +15,8 @@ var state = {
   reversal: 0,
   correct: 0,
   attempts: 0,
-  csvLoaded: false
+  csvLoaded: false,
+  answeredQuestions: [] // Track answered questions
 };
 var refs = {};
 
@@ -35,52 +36,115 @@ function append(p, children) {
 function injectAssets() {
   var h = document.head;
 
+  // Bootstrap CSS
   var bs = document.createElement("link");
   bs.rel = "stylesheet";
   bs.href = "https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css";
   h.appendChild(bs);
 
+  // Font Awesome for icons
+  var fa = document.createElement("link");
+  fa.rel = "stylesheet";
+  fa.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css";
+  h.appendChild(fa);
+
+  // Google Fonts
   var font = document.createElement("link");
   font.rel = "stylesheet";
   font.href = "https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap";
   h.appendChild(font);
 
+  // Custom Styles
   var st = document.createElement("style");
-  st.textContent = ""
-  + "body{background:#151822;color:#e8edf7;font-family:'Ubuntu','Segoe UI',sans-serif;margin:0;padding-bottom:56px;}"
-  + ".iml-shell{min-height:100vh;}"
-  + ".navbar-iml{background:#232838;border-radius:0;border:0;box-shadow:0 2px 4px rgba(0,0,0,.7);}"
-  + ".navbar-iml .navbar-brand{font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#f5f7ff!important;font-size:14px;}"
-  + ".navbar-iml .nav>li>a{text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:#d4dbf2!important;}"
-  + ".navbar-iml .nav>li>a:hover,.navbar-iml .nav>li.active>a{background:#31384e;color:#fff!important;}"
-  + ".iml-promo{background:#252c3c;border-bottom:1px solid #1a1e2a;color:#f3f6ff;font-size:11px;text-transform:uppercase;letter-spacing:.11em;padding:6px 15px;text-align:center;}"
-  + ".iml-main{padding:15px;}"
-  + ".panel-iml{background:#191d2a;border-radius:2px;border:1px solid #080a10;box-shadow:0 8px 18px rgba(0,0,0,.7);}"
-  + ".panel-iml>.panel-heading{background:#262c3e;border-color:#080a10;color:#f5f6ff;font-size:11px;text-transform:uppercase;letter-spacing:.12em;padding:8px 12px;}"
-  + ".panel-iml>.panel-body{background:#141824;}"
-  + ".iml-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#b8c0dd;margin-bottom:3px;}"
-  + ".iml-input{background:#050712;border-radius:2px;border:1px solid #20263b;color:#e6edff;height:30px;font-size:12px;padding:4px 8px;}"
-  + ".iml-input:focus{outline:none;border-color:#00b1ff;box-shadow:0 0 0 1px #00b1ff inset;}"
-  + ".btn-iml{background:#0d8ad6;border:1px solid #086297;color:#f9fcff;font-size:11px;text-transform:uppercase;letter-spacing:.13em;border-radius:2px;padding:6px 10px;}"
-  + ".btn-iml:hover{background:#10a0f4;color:#fff;}"
-  + ".iml-status-chip{display:inline-block;padding:2px 8px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;background:#1b7b33;border:1px solid #0c3b18;color:#e7fceb;}"
-  + ".iml-status-chip.inactive{background:#7b1b1b;border-color:#3b0c0c;}"
-  + ".iml-stat-grid{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 10px;}"
-  + ".iml-stat{flex:1 1 120px;min-width:120px;background:#10131f;border-radius:2px;border:1px solid #222739;padding:6px 8px;}"
-  + ".iml-stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#9aa3c0;}"
-  + ".iml-stat-val{font-size:16px;color:#f6f7ff;margin-top:2px;}"
-  + ".iml-stat-sub{font-size:10px;color:#a4acc6;}"
-  + ".iml-q-block{background:#101320;border-radius:2px;border:1px solid #242a3d;padding:8px 10px;margin-bottom:10px;}"
-  + ".iml-q-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#aeb6d4;margin-bottom:3px;}"
-  + ".iml-q-text{font-size:12px;color:#f3f4ff;margin-bottom:5px;}"
-  + ".iml-inline-msg{font-size:11px;margin-top:6px;}"
-  + ".iml-loading{color:#00b1ff;font-size:12px;text-align:center;padding:10px;}"
-  + ".iml-success{color:#4CAF50;font-size:12px;text-align:center;padding:10px;}"
-  + ".iml-error{color:#ff6b6b;font-size:12px;text-align:center;padding:10px;}"
-  + ".iml-bottom-nav{display:none;}"
-  + ".iml-data-status{margin-bottom:15px;padding:8px;background:#1a1f2e;border-radius:3px;border-left:3px solid #00b1ff;}"
-  + "@media(max-width:767px){.navbar-iml{display:none;}.iml-bottom-nav{display:flex;position:fixed;left:0;right:0;bottom:0;background:#202538;border-top:1px solid #080a10;z-index:9999;} .iml-bottom-nav button{flex:1;border:none;background:transparent;color:#d6ddf5;font-size:10px;text-transform:uppercase;letter-spacing:.09em;padding:7px 2px;} .iml-bottom-nav button.active{background:#31384e;}}"
-  + "@media(min-width:768px){.navbar-iml{display:block;}}";
+  st.textContent = `
+  body{background:#151822;color:#e8edf7;font-family:'Ubuntu','Segoe UI',sans-serif;margin:0;padding-bottom:56px;}
+  .iml-shell{min-height:100vh;}
+  .navbar-iml{background:#232838;border-radius:0;border:0;box-shadow:0 2px 4px rgba(0,0,0,.7);}
+  .navbar-iml .navbar-brand{font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#f5f7ff!important;font-size:14px;}
+  .navbar-iml .navbar-brand i{margin-right:8px;}
+  .navbar-iml .nav>li>a{text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:#d4dbf2!important;}
+  .navbar-iml .nav>li>a i{margin-right:5px;}
+  .navbar-iml .nav>li>a:hover,.navbar-iml .nav>li.active>a{background:#31384e;color:#fff!important;}
+  .iml-promo{background:linear-gradient(90deg, #252c3c, #1a1f2e);border-bottom:1px solid #1a1e2a;color:#f3f6ff;font-size:11px;text-transform:uppercase;letter-spacing:.11em;padding:6px 15px;text-align:center;}
+  .iml-main{padding:15px;min-height:calc(100vh - 120px);}
+  .panel-iml{background:#191d2a;border-radius:8px;border:1px solid #080a10;box-shadow:0 8px 18px rgba(0,0,0,.7);}
+  .panel-iml>.panel-heading{background:#262c3e;border-color:#080a10;color:#f5f6ff;font-size:11px;text-transform:uppercase;letter-spacing:.12em;padding:12px 15px;}
+  .panel-iml>.panel-body{background:#141824;padding:15px;}
+  .iml-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#b8c0dd;margin-bottom:3px;}
+  .iml-input{background:#050712;border-radius:4px;border:1px solid #20263b;color:#e6edff;height:36px;font-size:12px;padding:4px 12px;width:100%;}
+  .iml-input:focus{outline:none;border-color:#00b1ff;box-shadow:0 0 0 1px #00b1ff inset;}
+  .btn-iml{background:#0d8ad6;border:1px solid #086297;color:#f9fcff;font-size:11px;text-transform:uppercase;letter-spacing:.13em;border-radius:4px;padding:8px 16px;transition:all 0.3s;}
+  .btn-iml:hover{background:#10a0f4;color:#fff;transform:translateY(-1px);}
+  .btn-iml:disabled{background:#555;border-color:#444;color:#999;}
+  .iml-status-chip{display:inline-block;padding:4px 12px;border-radius:12px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;background:#1b7b33;border:1px solid #0c3b18;color:#e7fceb;}
+  .iml-status-chip.inactive{background:#7b1b1b;border-color:#3b0c0c;}
+  .iml-stat-grid{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 15px;}
+  .iml-stat{flex:1 1 120px;min-width:120px;background:#10131f;border-radius:6px;border:1px solid #222739;padding:10px 12px;}
+  .iml-stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#9aa3c0;}
+  .iml-stat-val{font-size:18px;color:#f6f7ff;margin-top:2px;font-weight:bold;}
+  .iml-stat-sub{font-size:10px;color:#a4acc6;}
+  .iml-q-block{background:#101320;border-radius:6px;border:1px solid #242a3d;padding:12px 15px;margin-bottom:12px;transition:all 0.3s;}
+  .iml-q-block.answered{opacity:0.6;background:#0a0c14;}
+  .iml-q-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#aeb6d4;margin-bottom:3px;}
+  .iml-q-text{font-size:13px;color:#f3f4ff;margin-bottom:8px;}
+  .iml-inline-msg{font-size:11px;margin-top:8px;padding:8px;border-radius:4px;}
+  .text-success{color:#4CAF50;}
+  .text-danger{color:#ff6b6b;}
+  .text-info{color:#00b1ff;}
+  .text-warning{color:#ffa726;}
+  .iml-loading{color:#00b1ff;font-size:12px;text-align:center;padding:10px;}
+  .iml-success{color:#4CAF50;font-size:12px;text-align:center;padding:10px;}
+  .iml-error{color:#ff6b6b;font-size:12px;text-align:center;padding:10px;}
+  .iml-data-status{margin-bottom:15px;padding:10px;background:#1a1f2e;border-radius:4px;border-left:3px solid #00b1ff;}
+  .iml-data-status.iml-success{border-left-color:#4CAF50;}
+  .iml-data-status.iml-error{border-left-color:#ff6b6b;}
+  
+  /* Mobile Bottom Navigation */
+  .iml-bottom-nav{display:none;}
+  
+  @media(max-width:767px){
+    .navbar-iml{display:none;}
+    .iml-bottom-nav{
+      display:flex;
+      position:fixed;
+      left:0;
+      right:0;
+      bottom:0;
+      background:#202538;
+      border-top:1px solid #080a10;
+      z-index:9999;
+      padding:5px 0;
+    }
+    .iml-bottom-nav button{
+      flex:1;
+      border:none;
+      background:transparent;
+      color:#d6ddf5;
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:.09em;
+      padding:8px 2px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      transition:all 0.3s;
+    }
+    .iml-bottom-nav button i{
+      font-size:14px;
+      margin-bottom:3px;
+    }
+    .iml-bottom-nav button.active{
+      background:#31384e;
+      color:#fff;
+    }
+    .iml-main{padding-bottom:70px;}
+  }
+  
+  @media(min-width:768px){
+    .navbar-iml{display:block;}
+    .iml-bottom-nav{display:none;}
+  }
+  `;
   h.appendChild(st);
 }
 
@@ -111,7 +175,7 @@ function fetchCSV() {
     
     // Update status
     if (refs.dataStatus) {
-      refs.dataStatus.innerHTML = "<strong>✓ Database Ready:</strong> " + rows.length + " user accounts loaded";
+      refs.dataStatus.innerHTML = "<strong><i class='fa fa-check'></i> Database Ready:</strong> " + rows.length + " user accounts loaded";
       refs.dataStatus.className = "iml-data-status iml-success";
     }
     
@@ -128,7 +192,7 @@ function fetchCSV() {
     
     // Show error but don't use fallback data
     if (refs.dataStatus) {
-      refs.dataStatus.innerHTML = "<strong>✗ Connection Error:</strong> Could not load user database. Please check your internet connection.";
+      refs.dataStatus.innerHTML = "<strong><i class='fa fa-exclamation-triangle'></i> Connection Error:</strong> Could not load user database. Please check your internet connection and CSV URL.";
       refs.dataStatus.className = "iml-data-status iml-error";
     }
     
@@ -137,20 +201,17 @@ function fetchCSV() {
       refs.loginBtn.textContent = "Database Unavailable";
     }
     
-    throw error; // Re-throw to prevent login
+    throw error;
   });
 }
 
-// Parse CSV text into array of objects
 function parseCSV(csvText) {
   var lines = csvText.trim().split('\n');
   if (lines.length < 2) return [];
   
-  // Parse headers (first line)
   var headers = parseCSVLine(lines[0]);
-  
-  // Parse data rows
   var rows = [];
+  
   for (var i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     
@@ -169,7 +230,6 @@ function parseCSV(csvText) {
   return rows;
 }
 
-// Parse a single CSV line, handling quoted fields
 function parseCSVLine(line) {
   var values = [];
   var currentValue = '';
@@ -206,35 +266,48 @@ function buildLayout() {
   var nav = el("nav", "navbar navbar-iml");
   var navC = el("div", "container-fluid");
   var nh = el("div", "navbar-header");
-  var brand = el("a", "navbar-brand", "IML LOGIN");
+  var brand = el("a", "navbar-brand", "");
+  brand.innerHTML = "<i class='fa fa-signal'></i> IML CONSOLE";
   brand.href = "#";
   nh.appendChild(brand);
+  
   var ul = el("ul", "nav navbar-nav");
-  ["HOME", "EARN", "SHOP", "LEADERS", "HELP", "CHAT"].forEach(function(txt, i) {
-    var li = el("li", i === 1 ? "active" : "");
-    var a = el("a", "", txt);
+  var navItems = [
+    {text: "HOME", icon: "fa-home", active: true},
+    {text: "EARN", icon: "fa-money"},
+    {text: "SHOP", icon: "fa-shopping-cart"},
+    {text: "LEADERS", icon: "fa-trophy"},
+    {text: "HELP", icon: "fa-question-circle"},
+    {text: "CHAT", icon: "fa-comments"}
+  ];
+  
+  navItems.forEach(function(item, i) {
+    var li = el("li", item.active ? "active" : "");
+    var a = el("a", "", "");
+    a.innerHTML = "<i class='fa " + item.icon + "'></i> " + item.text;
     a.href = "#";
     li.appendChild(a);
     ul.appendChild(li);
   });
+  
   append(navC, [nh, ul]);
   nav.appendChild(navC);
 
   // PROMO BAR
-  var promo = el("div", "iml-promo", "Secure Login - Live Data from Google Sheets");
+  var promo = el("div", "iml-promo", "Secure Login - Live Data from Google Sheets Database");
 
   // MAIN
   var main = el("div", "iml-main container-fluid");
   var row = el("div", "row");
-  var left = el("div", "col-sm-7 col-md-7");
-  var right = el("div", "col-sm-5 col-md-5");
+  var left = el("div", "col-sm-8 col-md-8");
+  var right = el("div", "col-sm-4 col-md-4");
 
   // LOGIN PANEL
   var pLogin = el("div", "panel panel-iml");
-  var pLH = el("div", "panel-heading", "User Authentication // Live Database");
+  var pLH = el("div", "panel-heading", "<i class='fa fa-lock'></i> User Authentication // Live Database");
+  pLH.innerHTML = "<i class='fa fa-lock'></i> User Authentication // Live Database";
   var pLB = el("div", "panel-body");
   
-  // Data loading status
   refs.dataStatus = el("div", "iml-data-status iml-loading", "Connecting to user database...");
   pLB.appendChild(refs.dataStatus);
   
@@ -245,16 +318,20 @@ function buildLayout() {
   var r1 = el("div", "row");
   var cU = el("div", "col-xs-12 col-sm-6");
   var cP = el("div", "col-xs-12 col-sm-6");
-  var lU = el("div", "iml-label", "Username");
+  var lU = el("div", "iml-label", "<i class='fa fa-user'></i> Username");
+  lU.innerHTML = "<i class='fa fa-user'></i> Username";
   var inU = el("input", "iml-input form-control");
   inU.type = "text";
   inU.placeholder = "operator-id";
   inU.id = "username";
-  var lP = el("div", "iml-label", "Password");
+  
+  var lP = el("div", "iml-label", "<i class='fa fa-key'></i> Password");
+  lP.innerHTML = "<i class='fa fa-key'></i> Password";
   var inP = el("input", "iml-input form-control");
   inP.type = "password";
   inP.placeholder = "auth-key";
   inP.id = "password";
+  
   append(cU, [lU, inU]);
   append(cP, [lP, inP]);
   append(r1, [cU, cP]);
@@ -262,6 +339,7 @@ function buildLayout() {
   var r2 = el("div", "row");
   var cBtn = el("div", "col-xs-12");
   var btnLogin = el("button", "btn btn-iml btn-block", "Loading Database...");
+  btnLogin.innerHTML = "<i class='fa fa-sign-in'></i> Loading Database...";
   btnLogin.type = "button";
   btnLogin.disabled = true;
   refs.loginBtn = btnLogin;
@@ -274,12 +352,14 @@ function buildLayout() {
   // DASHBOARD PANEL (HIDDEN INITIALLY)
   var pDash = el("div", "panel panel-iml");
   pDash.style.display = "none";
-  var dH = el("div", "panel-heading", "Earning Console // Micro Logic");
+  var dH = el("div", "panel-heading", "<i class='fa fa-dashboard'></i> Earning Console // Micro Logic");
+  dH.innerHTML = "<i class='fa fa-dashboard'></i> Earning Console // Micro Logic";
   var dB = el("div", "panel-body");
 
   var stRow = el("div", "row");
   var stCol = el("div", "col-xs-12");
-  var stLbl = el("span", "iml-label", "Account status: ");
+  var stLbl = el("span", "iml-label", "<i class='fa fa-info-circle'></i> Account status: ");
+  stLbl.innerHTML = "<i class='fa fa-info-circle'></i> Account status: ";
   var stChip = el("span", "iml-status-chip", "Inactive");
   stCol.appendChild(stLbl);
   stCol.appendChild(stChip);
@@ -287,36 +367,42 @@ function buildLayout() {
   refs.statusChip = stChip;
 
   var statGrid = el("div", "iml-stat-grid");
-  function mkStat(label, key, sub) {
+  function mkStat(label, key, sub, icon) {
     var box = el("div", "iml-stat");
-    var l = el("div", "iml-stat-label", label);
+    var l = el("div", "iml-stat-label", "");
+    l.innerHTML = "<i class='fa " + icon + "'></i> " + label;
     var v = el("div", "iml-stat-val", "0");
     var s = el("div", "iml-stat-sub", sub || "");
     refs["stat_" + key] = v;
     append(box, [l, v, s]);
     return box;
   }
-  var sRate = mkStat("Rate", "rate", "PTS per correct block");
-  var sPts = mkStat("PTS", "pts", "Live performance score");
-  var sRev = mkStat("Reversal", "rev", "Quality check % (7d preview)");
-  var sHold = mkStat("Hold", "hold", "PTS on hold if reversal ≥ 3%");
+  
+  var sRate = mkStat("Rate", "rate", "PTS per correct block", "fa-bolt");
+  var sPts = mkStat("PTS", "pts", "Live performance score", "fa-star");
+  var sRev = mkStat("Reversal", "rev", "Quality check % (7d preview)", "fa-line-chart");
+  var sHold = mkStat("Hold", "hold", "PTS on hold if reversal ≥ 3%", "fa-clock-o");
   append(statGrid, [sRate, sPts, sRev, sHold]);
 
   refs.qMsg = el("div", "iml-inline-msg");
   refs.qMsg.style.display = "none";
 
-  var qTitle = el("div", "iml-label", "Answer console: type exact response");
-  qTitle.style.margin = "10px 0 6px";
+  var qTitle = el("div", "iml-label", "<i class='fa fa-question-circle'></i> Answer console: type exact response");
+  qTitle.innerHTML = "<i class='fa fa-question-circle'></i> Answer console: type exact response";
+  qTitle.style.margin = "15px 0 10px";
 
   function makeQBlock(idx) {
     var wrap = el("div", "iml-q-block");
+    wrap.id = "qblock-" + idx;
     var lab = el("div", "iml-q-label", "#" + idx);
     var txt = el("div", "iml-q-text", "Loading question...");
     var inp = el("input", "iml-input form-control");
-    inp.placeholder = "type answer for #" + idx;
+    inp.placeholder = "Type answer for #" + idx + "...";
     inp.id = "q" + idx;
     var btnRow = el("div", "text-right");
-    var btn = el("button", "btn btn-iml btn-xs", "Submit #" + idx);
+    var btn = el("button", "btn btn-iml btn-sm", "Submit #" + idx);
+    btn.innerHTML = "<i class='fa fa-paper-plane'></i> Submit #" + idx;
+    btn.dataset.qid = idx;
     btnRow.appendChild(btn);
     append(wrap, [lab, txt, inp, btnRow]);
     return { root: wrap, text: txt, input: inp, button: btn };
@@ -329,7 +415,8 @@ function buildLayout() {
 
   var logoutRow = el("div", "row");
   var logoutCol = el("div", "col-xs-12 text-right");
-  var btnLogout = el("button", "btn btn-iml btn-xs", "Logout");
+  var btnLogout = el("button", "btn btn-iml", "Logout");
+  btnLogout.innerHTML = "<i class='fa fa-sign-out'></i> Logout";
   logoutCol.appendChild(btnLogout);
   logoutRow.appendChild(logoutCol);
 
@@ -340,20 +427,23 @@ function buildLayout() {
 
   // RIGHT: INFO PANEL
   var pInfo = el("div", "panel panel-iml");
-  var infoH = el("div", "panel-heading", "System Information");
+  var infoH = el("div", "panel-heading", "<i class='fa fa-info-circle'></i> System Information");
+  infoH.innerHTML = "<i class='fa fa-info-circle'></i> System Information";
   var infoB = el("div", "panel-body");
   var infoContent = el("div", "iml-q-text");
   infoContent.innerHTML = 
-    "<strong>Live Data Source:</strong><br>" +
+    "<strong><i class='fa fa-database'></i> Live Data Source:</strong><br>" +
     "✓ Google Sheets Database<br>" +
     "✓ Real-time User Accounts<br>" +
     "✓ Secure Authentication<br><br>" +
-    "<strong>How it works:</strong><br>" +
+    "<strong><i class='fa fa-cogs'></i> How it works:</strong><br>" +
     "• Login with your credentials<br>" +
     "• Answer questions to earn PTS<br>" +
     "• Each correct answer = 5 PTS<br>" +
     "• Monitor your reversal rate<br>" +
-    "• PTS may be held if reversal ≥ 3%";
+    "• PTS may be held if reversal ≥ 3%<br><br>" +
+    "<strong><i class='fa fa-exclamation-circle'></i> Note:</strong><br>" +
+    "Questions disappear after correct answer";
   append(infoB, [infoContent]);
   append(pInfo, [infoH, infoB]);
 
@@ -366,8 +456,18 @@ function buildLayout() {
 
   // MOBILE BOTTOM NAV
   var bottom = el("div", "iml-bottom-nav");
-  ["HOME", "EARN", "SHOP", "LEADERS", "HELP", "CHAT"].forEach(function(txt, i) {
-    var b = el("button", i === 1 ? "active" : "", txt);
+  var bottomItems = [
+    {text: "HOME", icon: "fa-home", active: true},
+    {text: "EARN", icon: "fa-money"},
+    {text: "SHOP", icon: "fa-shopping-cart"},
+    {text: "LEADERS", icon: "fa-trophy"},
+    {text: "HELP", icon: "fa-question-circle"},
+    {text: "CHAT", icon: "fa-comments"}
+  ];
+  
+  bottomItems.forEach(function(item) {
+    var b = el("button", item.active ? "active" : "", "");
+    b.innerHTML = "<i class='fa " + item.icon + "'></i><br>" + item.text;
     bottom.appendChild(b);
   });
   document.body.appendChild(bottom);
@@ -381,7 +481,7 @@ function buildLayout() {
     if (e.key === "Enter") onLogin(inU.value.trim(), inP.value.trim());
   });
 
-  [q1, q2, q3].forEach(function(q, idx) {
+  refs.qBlocks.forEach(function(q, idx) {
     q.button.addEventListener("click", function() {
       onAnswer(idx + 1, q.input);
     });
@@ -392,6 +492,16 @@ function buildLayout() {
 
   btnLogout.addEventListener("click", function() {
     onLogout();
+  });
+
+  // Mobile nav click handlers
+  var mobileBtns = bottom.querySelectorAll("button");
+  mobileBtns.forEach(function(btn, idx) {
+    btn.addEventListener("click", function() {
+      mobileBtns.forEach(b => b.classList.remove("active"));
+      this.classList.add("active");
+      // Add navigation logic here if needed
+    });
   });
 }
 
@@ -431,6 +541,10 @@ function showLoginMessage(msg, type) {
   if (!refs.loginMsg) return;
   refs.loginMsg.textContent = msg;
   refs.loginMsg.className = "iml-inline-msg";
+  refs.loginMsg.style.display = "block";
+  
+  // Clear previous color classes
+  refs.loginMsg.classList.remove("text-success", "text-danger", "text-info", "text-warning");
   
   if (type === "error") {
     refs.loginMsg.classList.add("text-danger");
@@ -441,8 +555,6 @@ function showLoginMessage(msg, type) {
   } else if (type === "warning") {
     refs.loginMsg.classList.add("text-warning");
   }
-  
-  refs.loginMsg.style.display = "block";
 }
 
 function onLogin(u, p) {
@@ -469,6 +581,7 @@ function onLogin(u, p) {
   state.reversal = user.reversal;
   state.correct = 0;
   state.attempts = 0;
+  state.answeredQuestions = []; // Reset answered questions
 
   showLoginMessage("Login successful! Loading dashboard...", "success");
   setTimeout(function() {
@@ -497,9 +610,18 @@ function applyUserToUI() {
   updateHold();
 
   // Update questions
-  if (state.user.q1) refs.qBlocks[0].text.textContent = state.user.q1;
-  if (state.user.q2) refs.qBlocks[1].text.textContent = state.user.q2;
-  if (state.user.q3) refs.qBlocks[2].text.textContent = state.user.q3;
+  if (state.user.q1) {
+    refs.qBlocks[0].text.textContent = state.user.q1;
+    resetQuestionDisplay(1);
+  }
+  if (state.user.q2) {
+    refs.qBlocks[1].text.textContent = state.user.q2;
+    resetQuestionDisplay(2);
+  }
+  if (state.user.q3) {
+    refs.qBlocks[2].text.textContent = state.user.q3;
+    resetQuestionDisplay(3);
+  }
 
   refs.qMsg.textContent = "Type your exact answers for #1, #2, #3. 1 correct out of 3 = 5 PTS.";
   refs.qMsg.className = "iml-inline-msg text-info";
@@ -508,6 +630,15 @@ function applyUserToUI() {
   // Clear login fields
   document.getElementById("username").value = "";
   document.getElementById("password").value = "";
+}
+
+function resetQuestionDisplay(qId) {
+  var qBlock = refs.qBlocks[qId - 1];
+  qBlock.root.classList.remove("answered");
+  qBlock.input.disabled = false;
+  qBlock.input.value = "";
+  qBlock.button.disabled = false;
+  qBlock.button.innerHTML = "<i class='fa fa-paper-plane'></i> Submit #" + qId;
 }
 
 function updateHold() {
@@ -534,6 +665,14 @@ function onAnswer(idx, inputEl) {
     return;
   }
 
+  // Check if already answered
+  if (state.answeredQuestions.includes(idx)) {
+    refs.qMsg.textContent = "Question #" + idx + " already answered!";
+    refs.qMsg.className = "iml-inline-msg text-warning";
+    refs.qMsg.style.display = "block";
+    return;
+  }
+
   var expected = "";
   if (idx === 1) expected = state.user.ans1.trim();
   if (idx === 2) expected = state.user.ans2.trim();
@@ -545,10 +684,25 @@ function onAnswer(idx, inputEl) {
   if (correct) {
     state.correct += 1;
     state.pts += POINTS_PER_CORRECT;
+    state.answeredQuestions.push(idx); // Mark as answered
+    
+    // Update UI
     refs.stat_pts.textContent = state.pts.toFixed(2);
-    refs.qMsg.textContent = "Correct for #" + idx + "! +5 PTS added.";
+    refs.qMsg.textContent = "Correct for #" + idx + "! +5 PTS added. Question removed.";
     refs.qMsg.className = "iml-inline-msg text-success";
+    
+    // Disable the question block
+    var qBlock = refs.qBlocks[idx - 1];
+    qBlock.root.classList.add("answered");
+    qBlock.input.disabled = true;
+    qBlock.button.disabled = true;
+    qBlock.button.innerHTML = "<i class='fa fa-check'></i> Answered";
     inputEl.value = "";
+    
+    // Clear the question text after a delay
+    setTimeout(function() {
+      qBlock.text.textContent = "✓ Answered correctly";
+    }, 1000);
   } else {
     refs.qMsg.textContent = "Incorrect for #" + idx + ". Please try again.";
     refs.qMsg.className = "iml-inline-msg text-warning";
@@ -571,15 +725,21 @@ function onLogout() {
   state.reversal = 0;
   state.correct = 0;
   state.attempts = 0;
+  state.answeredQuestions = [];
 
   // Switch panels back
   refs.dashPanel.style.display = "none";
   refs.loginPanel.style.display = "block";
 
   // Clear question inputs
-  document.getElementById("q1").value = "";
-  document.getElementById("q2").value = "";
-  document.getElementById("q3").value = "";
+  refs.qBlocks.forEach(function(q, idx) {
+    q.input.value = "";
+    q.text.textContent = "Loading question...";
+    q.root.classList.remove("answered");
+    q.input.disabled = false;
+    q.button.disabled = false;
+    q.button.innerHTML = "<i class='fa fa-paper-plane'></i> Submit #" + (idx + 1);
+  });
 
   // Clear login message
   refs.loginMsg.style.display = "none";
