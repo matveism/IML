@@ -1,6 +1,6 @@
 // ==== CONFIG ==========================================================
-// REPLACE THIS URL WITH YOUR GOOGLE SHEETS CSV LINK
-var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKqiArVi8o0JiLRUEsN-9VvxLrozyKFRpCl3NNFLAvb_VyVNki3Sm1ogfC74MJcaMToFnjJEpMUiKD/pub?gid=0&single=true&output=csv";
+// REPLACE WITH YOUR GOOGLE APPS SCRIPT WEB APP URL
+var API_BASE_URL = "https://script.google.com/macros/s/AKfycbxWE8QgOCifiQzjWJLAaX4Vz-BPYIKEuHDNnY7fAQgVTM-c0gMVlygSeG1V50IRS1eeLA/exec";
 
 var BASE_RATE = 10;
 var POINTS_PER_CORRECT = 5;
@@ -15,8 +15,9 @@ var state = {
   reversal: 0,
   correct: 0,
   attempts: 0,
-  csvLoaded: false,
-  answeredQuestions: [] // Track answered questions
+  loaded: false,
+  answeredQuestions: [],
+  sessionId: localStorage.getItem('iml_sessionId') || null
 };
 var refs = {};
 
@@ -32,6 +33,167 @@ function append(p, children) {
   return p;
 }
 
+// ==== API FUNCTIONS ===================================================
+async function fetchUsers() {
+  try {
+    const url = `${API_BASE_URL}?action=getUsers&t=${Date.now()}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to load users');
+    }
+    
+    state.rows = data.users || [];
+    state.loaded = true;
+    
+    // Update status
+    if (refs.dataStatus) {
+      refs.dataStatus.innerHTML = `<strong><i class='fa fa-check'></i> Database Ready:</strong> ${state.rows.length} user accounts loaded`;
+      refs.dataStatus.className = "iml-data-status iml-success";
+    }
+    
+    // Enable login button
+    if (refs.loginBtn) {
+      refs.loginBtn.disabled = false;
+      refs.loginBtn.innerHTML = "<i class='fa fa-sign-in'></i> Login to Console";
+    }
+    
+    // Auto-login if session exists
+    if (state.sessionId) {
+      await checkSession();
+    }
+    
+    return state.rows;
+  } catch (error) {
+    console.error('API Error:', error);
+    
+    if (refs.dataStatus) {
+      refs.dataStatus.innerHTML = `<strong><i class='fa fa-exclamation-triangle'></i> Connection Error:</strong> ${error.message}`;
+      refs.dataStatus.className = "iml-data-status iml-error";
+    }
+    
+    if (refs.loginBtn) {
+      refs.loginBtn.disabled = true;
+      refs.loginBtn.innerHTML = "<i class='fa fa-times'></i> Database Unavailable";
+    }
+    
+    throw error;
+  }
+}
+
+async function checkSession() {
+  if (!state.sessionId) return false;
+  
+  try {
+    const url = `${API_BASE_URL}?action=checkSession&sessionId=${state.sessionId}&t=${Date.now()}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.success && data.valid && data.user) {
+      // Restore session
+      await loginWithUser(data.user);
+      return true;
+    } else {
+      // Clear invalid session
+      localStorage.removeItem('iml_sessionId');
+      state.sessionId = null;
+      return false;
+    }
+  } catch (error) {
+    console.error('Session check failed:', error);
+    return false;
+  }
+}
+
+async function createSession(username) {
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'createSession',
+        username: username
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success && data.sessionId) {
+      state.sessionId = data.sessionId;
+      localStorage.setItem('iml_sessionId', data.sessionId);
+      return data.sessionId;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Create session failed:', error);
+    return null;
+  }
+}
+
+async function updateSheet(username, updates) {
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'updateUser',
+        username: username,
+        updates: updates
+      })
+    });
+    
+    const data = await response.json();
+    return data.success;
+  } catch (error) {
+    console.error('Update sheet failed:', error);
+    return false;
+  }
+}
+
+async function submitAnswerToSheet(username, questionId, answer, currentPts) {
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'submitAnswer',
+        username: username,
+        questionId: questionId,
+        answer: answer,
+        currentPts: currentPts
+      })
+    });
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Submit answer failed:', error);
+    return {success: false, error: error.message};
+  }
+}
+
+async function logoutFromSheet(username) {
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'logout',
+        username: username
+      })
+    });
+    
+    const data = await response.json();
+    return data.success;
+  } catch (error) {
+    console.error('Logout failed:', error);
+    return false;
+  }
+}
+
 // ==== CSS + BOOTSTRAP INJECTION =======================================
 function injectAssets() {
   var h = document.head;
@@ -42,7 +204,7 @@ function injectAssets() {
   bs.href = "https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css";
   h.appendChild(bs);
 
-  // Font Awesome for icons
+  // Font Awesome
   var fa = document.createElement("link");
   fa.rel = "stylesheet";
   fa.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css";
@@ -98,6 +260,7 @@ function injectAssets() {
   .iml-data-status{margin-bottom:15px;padding:10px;background:#1a1f2e;border-radius:4px;border-left:3px solid #00b1ff;}
   .iml-data-status.iml-success{border-left-color:#4CAF50;}
   .iml-data-status.iml-error{border-left-color:#ff6b6b;}
+  .iml-saving{position:fixed;bottom:60px;right:20px;background:#1a7b33;color:white;padding:8px 12px;border-radius:4px;font-size:11px;display:none;z-index:10000;}
   
   /* Mobile Bottom Navigation */
   .iml-bottom-nav{display:none;}
@@ -138,6 +301,7 @@ function injectAssets() {
       color:#fff;
     }
     .iml-main{padding-bottom:70px;}
+    .iml-saving{bottom:70px;}
   }
   
   @media(min-width:768px){
@@ -148,119 +312,16 @@ function injectAssets() {
   h.appendChild(st);
 }
 
-// ==== CSV LOADING =====================================================
-function fetchCSV() {
-  return fetch(CSV_URL, {
-    mode: 'cors',
-    cache: 'no-store'
-  })
-  .then(function(response) {
-    if (!response.ok) {
-      throw new Error('Failed to load data. Status: ' + response.status);
-    }
-    return response.text();
-  })
-  .then(function(csvText) {
-    if (!csvText || csvText.trim().length === 0) {
-      throw new Error('Data file is empty');
-    }
-    
-    var rows = parseCSV(csvText);
-    if (rows.length === 0) {
-      throw new Error('No user data found');
-    }
-    
-    state.rows = rows;
-    state.csvLoaded = true;
-    
-    // Update status
-    if (refs.dataStatus) {
-      refs.dataStatus.innerHTML = "<strong><i class='fa fa-check'></i> Database Ready:</strong> " + rows.length + " user accounts loaded";
-      refs.dataStatus.className = "iml-data-status iml-success";
-    }
-    
-    // Enable login button
-    if (refs.loginBtn) {
-      refs.loginBtn.disabled = false;
-      refs.loginBtn.textContent = "Login to Console";
-    }
-    
-    return rows;
-  })
-  .catch(function(error) {
-    console.error('CSV loading error:', error);
-    
-    // Show error but don't use fallback data
-    if (refs.dataStatus) {
-      refs.dataStatus.innerHTML = "<strong><i class='fa fa-exclamation-triangle'></i> Connection Error:</strong> Could not load user database. Please check your internet connection and CSV URL.";
-      refs.dataStatus.className = "iml-data-status iml-error";
-    }
-    
-    if (refs.loginBtn) {
-      refs.loginBtn.disabled = true;
-      refs.loginBtn.textContent = "Database Unavailable";
-    }
-    
-    throw error;
-  });
-}
-
-function parseCSV(csvText) {
-  var lines = csvText.trim().split('\n');
-  if (lines.length < 2) return [];
-  
-  var headers = parseCSVLine(lines[0]);
-  var rows = [];
-  
-  for (var i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    
-    var values = parseCSVLine(lines[i]);
-    var row = {};
-    
-    for (var j = 0; j < headers.length; j++) {
-      var header = headers[j].trim();
-      var value = (j < values.length ? values[j].trim() : '');
-      row[header] = value;
-    }
-    
-    rows.push(row);
-  }
-  
-  return rows;
-}
-
-function parseCSVLine(line) {
-  var values = [];
-  var currentValue = '';
-  var inQuotes = false;
-  
-  for (var i = 0; i < line.length; i++) {
-    var char = line.charAt(i);
-    
-    if (char === '"') {
-      if (inQuotes && i + 1 < line.length && line.charAt(i + 1) === '"') {
-        currentValue += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      values.push(currentValue);
-      currentValue = '';
-    } else {
-      currentValue += char;
-    }
-  }
-  
-  values.push(currentValue);
-  return values;
-}
-
 // ==== UI BUILD ========================================================
 function buildLayout() {
   document.body.innerHTML = "";
   var shell = el("div", "iml-shell");
+
+  // Saving indicator
+  var savingIndicator = el("div", "iml-saving");
+  savingIndicator.innerHTML = "<i class='fa fa-save'></i> Saving...";
+  savingIndicator.id = "savingIndicator";
+  shell.appendChild(savingIndicator);
 
   // DESKTOP NAV
   var nav = el("nav", "navbar navbar-iml");
@@ -294,7 +355,7 @@ function buildLayout() {
   nav.appendChild(navC);
 
   // PROMO BAR
-  var promo = el("div", "iml-promo", "Secure Login - Live Data from Google Sheets Database");
+  var promo = el("div", "iml-promo", "Secure Login - Live Data Sync with Google Sheets");
 
   // MAIN
   var main = el("div", "iml-main container-fluid");
@@ -352,8 +413,8 @@ function buildLayout() {
   // DASHBOARD PANEL (HIDDEN INITIALLY)
   var pDash = el("div", "panel panel-iml");
   pDash.style.display = "none";
-  var dH = el("div", "panel-heading", "<i class='fa fa-dashboard'></i> Earning Console // Micro Logic");
-  dH.innerHTML = "<i class='fa fa-dashboard'></i> Earning Console // Micro Logic";
+  var dH = el("div", "panel-heading", "<i class='fa fa-dashboard'></i> Earning Console // Real-time Sync");
+  dH.innerHTML = "<i class='fa fa-dashboard'></i> Earning Console // Real-time Sync";
   var dB = el("div", "panel-body");
 
   var stRow = el("div", "row");
@@ -432,18 +493,19 @@ function buildLayout() {
   var infoB = el("div", "panel-body");
   var infoContent = el("div", "iml-q-text");
   infoContent.innerHTML = 
-    "<strong><i class='fa fa-database'></i> Live Data Source:</strong><br>" +
-    "✓ Google Sheets Database<br>" +
-    "✓ Real-time User Accounts<br>" +
-    "✓ Secure Authentication<br><br>" +
+    "<strong><i class='fa fa-database'></i> Real-time Sync:</strong><br>" +
+    "✓ Live Google Sheets Sync<br>" +
+    "✓ Auto-save all changes<br>" +
+    "✓ Session persistence<br>" +
+    "✓ Secure authentication<br><br>" +
     "<strong><i class='fa fa-cogs'></i> How it works:</strong><br>" +
-    "• Login with your credentials<br>" +
-    "• Answer questions to earn PTS<br>" +
-    "• Each correct answer = 5 PTS<br>" +
-    "• Monitor your reversal rate<br>" +
-    "• PTS may be held if reversal ≥ 3%<br><br>" +
+    "• Login with credentials<br>" +
+    "• Answers auto-save to sheet<br>" +
+    "• Each correct answer = +5 PTS<br>" +
+    "• Points update in real-time<br>" +
+    "• Session saved automatically<br><br>" +
     "<strong><i class='fa fa-exclamation-circle'></i> Note:</strong><br>" +
-    "Questions disappear after correct answer";
+    "All changes sync to Google Sheets";
   append(infoB, [infoContent]);
   append(pInfo, [infoH, infoB]);
 
@@ -500,14 +562,29 @@ function buildLayout() {
     btn.addEventListener("click", function() {
       mobileBtns.forEach(b => b.classList.remove("active"));
       this.classList.add("active");
-      // Add navigation logic here if needed
     });
   });
 }
 
+// ==== SHOW SAVING INDICATOR ==========================================
+function showSaving() {
+  var indicator = document.getElementById('savingIndicator');
+  if (indicator) {
+    indicator.style.display = 'block';
+    indicator.innerHTML = "<i class='fa fa-save'></i> Saving to Google Sheets...";
+    
+    setTimeout(function() {
+      indicator.innerHTML = "<i class='fa fa-check'></i> Saved!";
+      setTimeout(function() {
+        indicator.style.display = 'none';
+      }, 1000);
+    }, 1000);
+  }
+}
+
 // ==== LOGIN / USER ====================================================
 function findUser(username, password) {
-  if (!state.csvLoaded) {
+  if (!state.loaded) {
     showLoginMessage("Database not loaded. Please wait...", "error");
     return null;
   }
@@ -521,6 +598,7 @@ function findUser(username, password) {
     if (rUsername === username && rPassword === password) {
       return {
         username: r.Username,
+        password: r.Password,
         status: r.Status || "Inactive",
         reversal: parseFloat(r.Reversal || "0") || 0,
         pts: parseFloat(r.PTS || "0") || 0,
@@ -530,7 +608,8 @@ function findUser(username, password) {
         q3: r["#3"] || "",
         ans1: r.Ans1 || "",
         ans2: r.Ans2 || "",
-        ans3: r.Ans3 || ""
+        ans3: r.Ans3 || "",
+        sessionId: r.SessionID || ""
       };
     }
   }
@@ -543,7 +622,6 @@ function showLoginMessage(msg, type) {
   refs.loginMsg.className = "iml-inline-msg";
   refs.loginMsg.style.display = "block";
   
-  // Clear previous color classes
   refs.loginMsg.classList.remove("text-success", "text-danger", "text-info", "text-warning");
   
   if (type === "error") {
@@ -557,10 +635,26 @@ function showLoginMessage(msg, type) {
   }
 }
 
-function onLogin(u, p) {
+async function loginWithUser(userData) {
+  state.user = userData;
+  state.pts = userData.pts;
+  state.reversal = userData.reversal;
+  state.correct = 0;
+  state.attempts = 0;
+  state.answeredQuestions = [];
+  state.sessionId = userData.sessionId || state.sessionId;
+
+  showLoginMessage("Auto-login successful! Loading dashboard...", "success");
+  
+  setTimeout(function() {
+    applyUserToUI();
+  }, 500);
+}
+
+async function onLogin(u, p) {
   refs.loginMsg.style.display = "none";
 
-  if (!state.csvLoaded) {
+  if (!state.loaded) {
     showLoginMessage("User database still loading. Please wait...", "error");
     return;
   }
@@ -581,9 +675,17 @@ function onLogin(u, p) {
   state.reversal = user.reversal;
   state.correct = 0;
   state.attempts = 0;
-  state.answeredQuestions = []; // Reset answered questions
+  state.answeredQuestions = [];
 
-  showLoginMessage("Login successful! Loading dashboard...", "success");
+  // Create session and save to Google Sheets
+  var sessionId = await createSession(u);
+  if (sessionId) {
+    state.sessionId = sessionId;
+    user.sessionId = sessionId;
+  }
+
+  showLoginMessage("Login successful! Creating session...", "success");
+  
   setTimeout(function() {
     applyUserToUI();
   }, 500);
@@ -649,7 +751,7 @@ function updateHold() {
   refs.stat_hold.textContent = hold.toFixed(2) + " PTS / " + HOLD_DAYS + " days";
 }
 
-function onAnswer(idx, inputEl) {
+async function onAnswer(idx, inputEl) {
   if (!state.user) {
     refs.qMsg.textContent = "Please login first to submit answers.";
     refs.qMsg.className = "iml-inline-msg text-danger";
@@ -684,11 +786,11 @@ function onAnswer(idx, inputEl) {
   if (correct) {
     state.correct += 1;
     state.pts += POINTS_PER_CORRECT;
-    state.answeredQuestions.push(idx); // Mark as answered
+    state.answeredQuestions.push(idx);
     
-    // Update UI
+    // Update UI immediately
     refs.stat_pts.textContent = state.pts.toFixed(2);
-    refs.qMsg.textContent = "Correct for #" + idx + "! +5 PTS added. Question removed.";
+    refs.qMsg.textContent = "Correct for #" + idx + "! +5 PTS added. Updating sheet...";
     refs.qMsg.className = "iml-inline-msg text-success";
     
     // Disable the question block
@@ -699,7 +801,36 @@ function onAnswer(idx, inputEl) {
     qBlock.button.innerHTML = "<i class='fa fa-check'></i> Answered";
     inputEl.value = "";
     
-    // Clear the question text after a delay
+    // Show saving indicator
+    showSaving();
+    
+    // UPDATE GOOGLE SHEET WITH NEW POINTS
+    try {
+      // Method 1: Submit answer via API
+      var result = await submitAnswerToSheet(state.user.username, idx, v, state.pts);
+      
+      if (result.success) {
+        // Update from server response
+        state.pts = result.newPts || state.pts;
+        refs.stat_pts.textContent = state.pts.toFixed(2);
+        
+        // Also update local user object
+        state.user.pts = state.pts;
+        
+        refs.qMsg.textContent = result.message + " Sheet updated!";
+        
+        // Method 2: Also update user data directly
+        await updateSheet(state.user.username, {
+          PTS: state.pts.toFixed(2),
+          Reversal: state.reversal.toFixed(2)
+        });
+      }
+    } catch (error) {
+      console.error("Failed to update sheet:", error);
+      refs.qMsg.textContent = "Correct! +5 PTS (Sheet update failed)";
+    }
+    
+    // Clear the question text
     setTimeout(function() {
       qBlock.text.textContent = "✓ Answered correctly";
     }, 1000);
@@ -719,13 +850,23 @@ function onAnswer(idx, inputEl) {
   updateHold();
 }
 
-function onLogout() {
+async function onLogout() {
+  // Clear session from Google Sheets
+  if (state.user && state.user.username) {
+    await logoutFromSheet(state.user.username);
+  }
+  
+  // Clear local storage
+  localStorage.removeItem('iml_sessionId');
+  
+  // Reset state
   state.user = null;
   state.pts = 0;
   state.reversal = 0;
   state.correct = 0;
   state.attempts = 0;
   state.answeredQuestions = [];
+  state.sessionId = null;
 
   // Switch panels back
   refs.dashPanel.style.display = "none";
@@ -750,10 +891,10 @@ document.addEventListener("DOMContentLoaded", function() {
   injectAssets();
   buildLayout();
 
-  // Start loading CSV data immediately
-  fetchCSV().then(function(rows) {
-    console.log("Successfully loaded " + rows.length + " user records");
+  // Start loading user data
+  fetchUsers().then(function(rows) {
+    console.log("✅ Successfully loaded " + rows.length + " user records");
   }).catch(function(error) {
-    console.error("Failed to load database:", error);
+    console.error("❌ Failed to load database:", error);
   });
 });
