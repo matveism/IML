@@ -82,7 +82,7 @@ async function fetchUsers() {
     
     if (refs.loginBtn) {
       refs.loginBtn.disabled = false;
-      refs.loginBtn.innerHTML = "Login to Console";
+      refs.loginBtn.innerHTML = "<i class='fa fa-sign-in'></i> Login to Console";
     }
     
     return state.rows;
@@ -99,7 +99,7 @@ async function fetchUsers() {
     
     if (refs.loginBtn) {
       refs.loginBtn.disabled = false;
-      refs.loginBtn.innerHTML = "Login (Demo Mode)";
+      refs.loginBtn.innerHTML = "<i class='fa fa-sign-in'></i> Login (Demo Mode)";
     }
     
     return state.rows;
@@ -730,10 +730,23 @@ function buildEarnPage() {
   earningsCol.appendChild(earningsTitle);
   
   var statGrid = el("div", "iml-stat-grid");
-  var totalEarned = mkStat("Total Earned", "total", "All time earnings", "fa-money");
-  var todayEarned = mkStat("Today", "today", "Earnings today", "fa-calendar");
-  var weeklyEarned = mkStat("This Week", "week", "Weekly earnings", "fa-calendar-o");
-  var monthlyEarned = mkStat("This Month", "month", "Monthly earnings", "fa-calendar-check-o");
+  
+  // Helper function to create stats
+  function mkStat(label, value, sub, icon) {
+    var box = el("div", "iml-stat");
+    var l = el("div", "iml-stat-label", "");
+    l.innerHTML = "<i class='fa " + icon + "'></i> " + label;
+    var v = el("div", "iml-stat-val", value);
+    var s = el("div", "iml-stat-sub", sub || "");
+    append(box, [l, v, s]);
+    return box;
+  }
+  
+  var totalEarned = mkStat("Total Earned", state.pts.toFixed(2) + " PTS", "All time earnings", "fa-money");
+  var todayEarned = mkStat("Today", "0.00 PTS", "Earnings today", "fa-calendar");
+  var weeklyEarned = mkStat("This Week", "0.00 PTS", "Weekly earnings", "fa-calendar-o");
+  var monthlyEarned = mkStat("This Month", "0.00 PTS", "Monthly earnings", "fa-calendar-check-o");
+  
   append(statGrid, [totalEarned, todayEarned, weeklyEarned, monthlyEarned]);
   earningsCol.appendChild(statGrid);
   earningsRow.appendChild(earningsCol);
@@ -1494,7 +1507,7 @@ function buildDashboardPanel() {
   var logoutRow = el("div", "row");
   var logoutCol = el("div", "col-xs-12 text-right");
   var btnLogout = el("button", "btn btn-iml", "Logout");
-  btnLogout.innerHTML = "<i class='fa fa-sign-out"></i> Logout";
+  btnLogout.innerHTML = "<i class='fa fa-sign-out'></i> Logout";
   logoutCol.appendChild(btnLogout);
   logoutRow.appendChild(logoutCol);
 
@@ -1696,6 +1709,7 @@ function showMessage(msg, type, container) {
     existingMsg.remove();
   }
   
+  // Add message to top of container
   container.insertBefore(msgDiv, container.firstChild);
   
   // Auto-remove after 5 seconds
@@ -1781,6 +1795,11 @@ async function onLogin(u, p) {
   state.answeredQuestions = [];
 
   showLoginMessage("Login successful!", "success");
+  
+  // Save session ID
+  var sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem('iml_sessionId', sessionId);
+  state.sessionId = sessionId;
   
   // Update UI
   setTimeout(function() {
@@ -2011,6 +2030,8 @@ function onLogout() {
   state.correct = 0;
   state.attempts = 0;
   state.answeredQuestions = [];
+  localStorage.removeItem('iml_sessionId');
+  state.sessionId = null;
 
   // Rebuild home page with login
   var homePage = document.querySelector('.home-page');
