@@ -1,11 +1,637 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>IML Login System</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="iml.js"></script>
-</head>
-<body>
+// ==== CONTINUATION OF PART 2 HTML/JavaScript FRONTEND ====
+
+function loadShopPage() {
+    const shopPage = document.getElementById('shopPage');
+    
+    // Build cashout section
+    const cashoutSection = `
+        <div style="margin-top: 30px;">
+            <div class="form-label">
+                <i class="fa fa-credit-card"></i> CASHOUT OPTIONS
+            </div>
+            <div class="row" style="margin-bottom: 15px;">
+                <div class="col-xs-12 col-md-4" style="margin-bottom: 15px;">
+                    <div class="shop-item" onclick="selectCashoutMethod('paypal')" id="cashoutPaypal" style="cursor: pointer; text-align: center;">
+                        <div style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;">
+                            <i class="fa fa-paypal"></i>
+                        </div>
+                        <div style="font-weight: 600; color: var(--light-text); margin-bottom: 5px;">
+                            PayPal
+                        </div>
+                        <div style="font-size: 11px; color: #AAAAAA;">
+                            Minimum 100 PTS = $10
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xs-12 col-md-4" style="margin-bottom: 15px;">
+                    <div class="shop-item" onclick="selectCashoutMethod('amazon')" id="cashoutAmazon" style="cursor: pointer; text-align: center;">
+                        <div style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;">
+                            <i class="fa fa-amazon"></i>
+                        </div>
+                        <div style="font-weight: 600; color: var(--light-text); margin-bottom: 5px;">
+                            Amazon Gift Card
+                        </div>
+                        <div style="font-size: 11px; color: #AAAAAA;">
+                            Minimum 50 PTS = $5
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xs-12 col-md-4" style="margin-bottom: 15px;">
+                    <div class="shop-item" onclick="selectCashoutMethod('bitcoin')" id="cashoutBitcoin" style="cursor: pointer; text-align: center;">
+                        <div style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;">
+                            <i class="fa fa-btc"></i>
+                        </div>
+                        <div style="font-weight: 600; color: var(--light-text); margin-bottom: 5px;">
+                            Bitcoin
+                        </div>
+                        <div style="font-size: 11px; color: #AAAAAA;">
+                            Minimum 200 PTS = $20
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-label">REQUEST CASHOUT</div>
+            <div class="row">
+                <div class="col-xs-12 col-sm-6">
+                    <input type="number" id="cashoutAmount" class="form-control-iml" placeholder="Amount (min 50 PTS)" min="50" step="1">
+                </div>
+                <div class="col-xs-12 col-sm-6">
+                    <input type="text" id="cashoutMethodInput" class="form-control-iml" placeholder="Select method above" readonly>
+                </div>
+            </div>
+            <div style="margin-top: 10px;">
+                <input type="text" id="cashoutDetails" class="form-control-iml" placeholder="PayPal email / Amazon account / Bitcoin address">
+            </div>
+            <button class="btn btn-iml" onclick="handleCashout()" style="width: 100%; margin-top: 15px;">
+                <i class="fa fa-check-circle"></i> REQUEST CASHOUT
+            </button>
+        </div>
+    `;
+
+    shopPage.innerHTML = `
+        <div class="panel panel-iml">
+            <div class="panel-heading">
+                <i class="fa fa-shopping-cart"></i> REWARDS SHOP
+            </div>
+            <div class="panel-body">
+                <div class="text-center" style="margin-bottom: 25px;">
+                    <div class="stat-card" style="display: inline-block; min-width: 200px;">
+                        <div class="stat-label">YOUR BALANCE</div>
+                        <div class="stat-value user-points" style="color: var(--secondary-color); font-size: 24px;">
+                            ${formatCurrency(appState.userPoints || 0)} PTS
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-label">AVAILABLE REWARDS</div>
+                <div id="shopItemsContainer" style="margin-bottom: 30px;">
+                    <!-- Shop items will be loaded here -->
+                </div>
+                
+                ${appState.currentUser ? cashoutSection : '<div class="text-center" style="padding: 20px; color: #AAAAAA;">Please login to view cashout options</div>'}
+            </div>
+        </div>
+    `;
+
+    // Load shop items dynamically
+    loadAndDisplayShopItems();
+}
+
+async function loadAndDisplayShopItems() {
+    const items = await loadShopItems();
+    const container = document.getElementById('shopItemsContainer');
+    
+    if (!container) return;
+    
+    if (items.length === 0) {
+        container.innerHTML = '<div class="text-center" style="color: #AAAAAA;">No items available</div>';
+        return;
+    }
+    
+    let itemsHtml = '<div class="row">';
+    items.forEach(item => {
+        const canAfford = appState.currentUser && appState.userPoints >= item.cost;
+        itemsHtml += `
+            <div class="col-xs-12 col-sm-6 col-md-4" style="margin-bottom: 15px;">
+                <div class="shop-item">
+                    <div class="shop-item-header">
+                        <div class="shop-item-name">${item.name}</div>
+                        <div class="shop-item-cost">${item.cost} PTS</div>
+                    </div>
+                    <div class="shop-item-desc">${item.description}</div>
+                    <button class="btn btn-iml purchase-btn" 
+                            onclick="handlePurchaseItem(${item.id})" 
+                            data-cost="${item.cost}"
+                            ${!appState.currentUser || !canAfford ? 'disabled' : ''}
+                            style="width: 100%;">
+                        <i class="fa fa-shopping-cart"></i> PURCHASE
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    itemsHtml += '</div>';
+    
+    container.innerHTML = itemsHtml;
+}
+
+function selectCashoutMethod(method) {
+    // Reset all selections
+    document.getElementById('cashoutPaypal').style.borderColor = '#333333';
+    document.getElementById('cashoutAmazon').style.borderColor = '#333333';
+    document.getElementById('cashoutBitcoin').style.borderColor = '#333333';
+    
+    // Highlight selected
+    document.getElementById(`cashout${method.charAt(0).toUpperCase() + method.slice(1)}`).style.borderColor = 'var(--secondary-color)';
+    
+    // Update input
+    document.getElementById('cashoutMethodInput').value = method.toUpperCase();
+}
+
+async function handleCashout() {
+    const amount = document.getElementById('cashoutAmount').value;
+    const method = document.getElementById('cashoutMethodInput').value;
+    const details = document.getElementById('cashoutDetails').value;
+    
+    if (!amount || amount < 50) {
+        showMessage('Minimum cashout is 50 PTS', 'warning');
+        return;
+    }
+    
+    if (!method) {
+        showMessage('Please select a cashout method', 'warning');
+        return;
+    }
+    
+    if (!details) {
+        showMessage('Please enter payment details', 'warning');
+        return;
+    }
+    
+    if (appState.userPoints < amount) {
+        showMessage('Insufficient points', 'error');
+        return;
+    }
+    
+    const confirmCashout = confirm(`Request cashout of ${amount} PTS via ${method}?\n\nDetails: ${details}`);
+    if (!confirmCashout) return;
+    
+    const success = await requestCashout(amount, method, details);
+    if (success) {
+        document.getElementById('cashoutAmount').value = '';
+        document.getElementById('cashoutMethodInput').value = '';
+        document.getElementById('cashoutDetails').value = '';
+    }
+}
+
+async function loadLeadersPage() {
+    const leadersPage = document.getElementById('leadersPage');
+    const leaderboard = await loadLeaderboard();
+    
+    let leaderboardHtml = '';
+    leaderboard.forEach(leader => {
+        leaderboardHtml += `
+            <div class="leaderboard-row">
+                <div class="leaderboard-rank">${leader.rank}</div>
+                <div class="leaderboard-medal">
+                    ${leader.rank === 1 ? '<i class="fa fa-trophy" style="color: #FFD700;"></i>' : 
+                      leader.rank === 2 ? '<i class="fa fa-trophy" style="color: #C0C0C0;"></i>' : 
+                      leader.rank === 3 ? '<i class="fa fa-trophy" style="color: #CD7F32;"></i>' : 
+                      '<i class="fa fa-user"></i>'}
+                </div>
+                <div class="leaderboard-user">
+                    <div class="leaderboard-username">${leader.username}</div>
+                    <div class="leaderboard-level">${leader.level}</div>
+                </div>
+                <div class="leaderboard-points">${leader.pts} PTS</div>
+            </div>
+        `;
+    });
+    
+    leadersPage.innerHTML = `
+        <div class="panel panel-iml">
+            <div class="panel-heading">
+                <i class="fa fa-trophy"></i> LEADERBOARD
+            </div>
+            <div class="panel-body">
+                <div style="margin-bottom: 20px;">
+                    <div class="btn-group btn-group-justified">
+                        <button class="btn btn-iml active" style="border-radius: 4px 0 0 4px;">DAILY</button>
+                        <button class="btn btn-iml" style="border-radius: 0;">WEEKLY</button>
+                        <button class="btn btn-iml" style="border-radius: 0;">MONTHLY</button>
+                        <button class="btn btn-iml" style="border-radius: 0 4px 4px 0;">ALL TIME</button>
+                    </div>
+                </div>
+                
+                ${leaderboardHtml}
+                
+                ${appState.currentUser ? `
+                    <div style="margin-top: 25px;">
+                        <div class="stat-card">
+                            <div class="stat-label">YOUR POSITION</div>
+                            <div class="stat-value" style="color: var(--secondary-color);">#${leaderboard.findIndex(l => l.username === appState.currentUser.username) + 1 || 'N/A'}</div>
+                            <div class="stat-sub">${formatCurrency(appState.userPoints)} PTS</div>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function loadHelpPage() {
+    const helpPage = document.getElementById('helpPage');
+    helpPage.innerHTML = `
+        <div class="panel panel-iml">
+            <div class="panel-heading">
+                <i class="fa fa-question-circle"></i> HELP & SUPPORT
+            </div>
+            <div class="panel-body">
+                <div class="question-card">
+                    <div class="question-number">HOW DO I EARN POINTS?</div>
+                    <div class="question-text">
+                        • Answer questions correctly: +5 PTS each<br>
+                        • Daily login bonus: +5 PTS daily<br>
+                        • Complete profile: +10 PTS<br>
+                        • Refer friends: +25 PTS each<br>
+                        • Redeem bonus codes: Varies (10-100 PTS)<br>
+                        • Weekly streak: +50 PTS for 7 consecutive days
+                    </div>
+                </div>
+                
+                <div class="question-card">
+                    <div class="question-number">HOW DO I CASHOUT?</div>
+                    <div class="question-text">
+                        1. Go to Shop page<br>
+                        2. Select cashout method (PayPal, Amazon, Bitcoin)<br>
+                        3. Enter amount (minimum 50 PTS)<br>
+                        4. Provide payment details<br>
+                        5. Submit request<br><br>
+                        Cashouts are processed within 3-5 business days.
+                    </div>
+                </div>
+                
+                <div class="question-card">
+                    <div class="question-number">WHAT IS THE REVERSAL RATE?</div>
+                    <div class="question-text">
+                        The reversal rate is a quality control metric. Lower is better.<br>
+                        • Correct answers decrease reversal by 0.1<br>
+                        • Incorrect answers increase reversal by 0.2<br>
+                        • If reversal exceeds 3%, some points may be held for 15 days
+                    </div>
+                </div>
+                
+                <div class="question-card">
+                    <div class="question-number">WHERE IS MY DATA STORED?</div>
+                    <div class="question-text">
+                        All data is stored securely in Google Sheets. Your progress syncs instantly with Google's servers. We never store passwords in plain text.
+                    </div>
+                </div>
+                
+                <div class="question-card">
+                    <div class="question-number">HOW DO I CONTACT SUPPORT?</div>
+                    <div class="question-text">
+                        • Use the Live Chat feature (available 9AM-5PM GMT)<br>
+                        • Email: support@imlconsole.com<br>
+                        • Response time: 24-48 hours<br><br>
+                        For urgent issues, please use the chat feature.
+                    </div>
+                </div>
+                
+                <div style="margin-top: 30px;">
+                    <div class="form-label">CONTACT SUPPORT</div>
+                    <input type="text" id="supportSubject" class="form-control-iml" placeholder="Subject">
+                    <textarea id="supportMessage" class="form-control-iml" placeholder="Your message..." rows="4" style="margin-top: 10px;"></textarea>
+                    <button class="btn btn-iml" onclick="sendSupportMessage()" style="width: 100%; margin-top: 15px;">
+                        <i class="fa fa-paper-plane"></i> SEND MESSAGE
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function loadChatPage() {
+    const chatPage = document.getElementById('chatPage');
+    await loadChatMessages();
+    
+    let messagesHtml = '';
+    appState.chatMessages.forEach(msg => {
+        const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const senderClass = msg.sender === 'User' ? 'user' : 'support';
+        messagesHtml += `
+            <div class="chat-message ${senderClass}">
+                <div class="chat-sender ${senderClass}">
+                    ${msg.sender} • ${time}
+                </div>
+                <div class="chat-text">
+                    ${msg.message}
+                </div>
+            </div>
+        `;
+    });
+    
+    chatPage.innerHTML = `
+        <div class="panel panel-iml">
+            <div class="panel-heading">
+                <i class="fa fa-comments"></i> LIVE CHAT
+            </div>
+            <div class="panel-body">
+                <div class="chat-container" id="chatMessagesContainer">
+                    ${messagesHtml}
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <div class="input-group">
+                        <input type="text" id="chatMessageInput" class="form-control-iml" placeholder="Type your message..." ${!appState.currentUser ? 'disabled' : ''}>
+                        <span class="input-group-btn">
+                            <button class="btn btn-iml" onclick="sendChatMessageNow()" ${!appState.currentUser ? 'disabled' : ''}>
+                                <i class="fa fa-paper-plane"></i>
+                            </button>
+                        </span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 25px; padding: 15px; background-color: rgba(0, 255, 224, 0.1); border-radius: 6px; border: 1px solid var(--primary-color);">
+                    <strong>CHAT INFORMATION:</strong><br>
+                    • Support available: 9 AM - 5 PM (GMT)<br>
+                    • Typical response time: 5-10 minutes<br>
+                    • Chat history saved for 7 days<br>
+                    • For urgent issues: support@imlconsole.com
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Scroll to bottom of chat
+    const container = document.getElementById('chatMessagesContainer');
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+// ==== EVENT HANDLERS ===============================================
+function handleLogin() {
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    
+    if (!username || !password) {
+        showMessage('Please enter username and password', 'warning');
+        return;
+    }
+    
+    loginUser(username, password);
+}
+
+async function handleRedeemBonus() {
+    const code = document.getElementById('bonusCodeInput').value.trim();
+    if (!code) {
+        showMessage('Please enter a bonus code', 'warning');
+        return;
+    }
+    
+    const success = await redeemBonusCode(code);
+    if (success) {
+        document.getElementById('bonusCodeInput').value = '';
+    }
+}
+
+async function handlePurchaseItem(itemId) {
+    if (!appState.currentUser) {
+        showMessage('Please login first', 'error');
+        return;
+    }
+    
+    const confirmPurchase = confirm('Are you sure you want to purchase this item?');
+    if (!confirmPurchase) return;
+    
+    const code = await purchaseItem(itemId);
+    if (code) {
+        showMessage(`Purchase successful! Your code: ${code}`, 'success');
+        loadAndDisplayShopItems();
+    }
+}
+
+function sendSupportMessage() {
+    const subject = document.getElementById('supportSubject').value.trim();
+    const message = document.getElementById('supportMessage').value.trim();
+    
+    if (!subject || !message) {
+        showMessage('Please fill in both fields', 'warning');
+        return;
+    }
+    
+    // In a real app, you would send this to your backend
+    showMessage('Message sent to support. We will respond within 24 hours.', 'success');
+    document.getElementById('supportSubject').value = '';
+    document.getElementById('supportMessage').value = '';
+}
+
+function sendChatMessageNow() {
+    const input = document.getElementById('chatMessageInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    if (!appState.currentUser) {
+        showMessage('Please login to use chat', 'error');
+        return;
+    }
+    
+    // Add message to UI immediately
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const messagesContainer = document.getElementById('chatMessagesContainer');
+    
+    messagesContainer.innerHTML += `
+        <div class="chat-message user">
+            <div class="chat-sender user">
+                You • ${time}
+            </div>
+            <div class="chat-text">
+                ${message}
+            </div>
+        </div>
+    `;
+    
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Clear input
+    input.value = '';
+    
+    // Send to server
+    sendChatMessage(message);
+    
+    // Load updated messages after a delay
+    setTimeout(() => {
+        loadChatMessages();
+    }, 1000);
+}
+
+function logoutUser() {
+    appState.currentUser = null;
+    appState.userPoints = 0;
+    appState.userReversal = 0;
+    
+    localStorage.removeItem('iml_sessionId');
+    localStorage.removeItem('iml_username');
+    
+    showMessage('Logged out successfully', 'success');
+    loadHomePage();
+}
+
+// ==== PAGE NAVIGATION ==============================================
+function navigateTo(page) {
+    // Update active state in desktop nav
+    document.querySelectorAll('.navbar-nav li').forEach(li => {
+        li.classList.remove('active');
+        if (li.dataset.page === page) {
+            li.classList.add('active');
+        }
+    });
+    
+    // Update active state in mobile nav
+    document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.page === page) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Hide all pages
+    document.querySelectorAll('.page-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Show selected page
+    document.getElementById(`${page}Page`).classList.add('active');
+    
+    // Load page content
+    appState.currentPage = page;
+    
+    switch(page) {
+        case 'home':
+            loadHomePage();
+            break;
+        case 'earn':
+            loadEarnPage();
+            break;
+        case 'shop':
+            loadShopPage();
+            break;
+        case 'leaders':
+            loadLeadersPage();
+            break;
+        case 'help':
+            loadHelpPage();
+            break;
+        case 'chat':
+            loadChatPage();
+            break;
+    }
+}
+
+// ==== INITIALIZATION ===============================================
+async function initializeApp() {
+    // Check for existing session
+    const savedUsername = localStorage.getItem('iml_username');
+    const savedSessionId = localStorage.getItem('iml_sessionId');
+    
+    if (savedUsername && savedSessionId) {
+        showLoading('Restoring session...');
+        
+        // Try to login with saved credentials
+        const result = await apiCall('login', {
+            username: savedUsername,
+            password: 'password123' // Note: In production, you shouldn't store passwords
+        });
+        
+        if (result) {
+            appState.currentUser = result.user;
+            appState.userPoints = result.user.pts;
+            appState.userReversal = result.user.reversal;
+            showMessage('Welcome back!', 'success');
+        } else {
+            localStorage.removeItem('iml_username');
+            localStorage.removeItem('iml_sessionId');
+        }
+    }
+    
+    // Set up navigation event listeners
+    document.querySelectorAll('.navbar-nav li a').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const page = this.parentElement.dataset.page;
+            navigateTo(page);
+        });
+    });
+    
+    document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const page = this.dataset.page;
+            navigateTo(page);
+        });
+    });
+    
+    // Set up Enter key for login
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            if (appState.currentPage === 'home' && !appState.currentUser) {
+                const usernameInput = document.getElementById('loginUsername');
+                const passwordInput = document.getElementById('loginPassword');
+                if (usernameInput && document.activeElement === usernameInput) {
+                    passwordInput.focus();
+                } else if (passwordInput && document.activeElement === passwordInput) {
+                    handleLogin();
+                }
+            }
+            
+            // Enter key for chat
+            if (appState.currentPage === 'chat') {
+                const chatInput = document.getElementById('chatMessageInput');
+                if (chatInput && document.activeElement === chatInput) {
+                    sendChatMessageNow();
+                }
+            }
+            
+            // Enter key for answers
+            if (appState.currentPage === 'home' && appState.currentUser) {
+                for (let i = 1; i <= 3; i++) {
+                    const answerInput = document.getElementById(`answerInput${i}`);
+                    if (answerInput && document.activeElement === answerInput) {
+                        submitAnswer(i.toString(), answerInput.value);
+                        break;
+                    }
+                }
+            }
+        }
+    });
+    
+    // Load initial page
+    navigateTo('home');
+    
+    // Test API connection
+    const testResult = await apiCall('test');
+    if (testResult) {
+        console.log('API Connected:', testResult);
+    }
+}
+
+// ==== START APPLICATION ============================================
+// Make functions globally available
+window.handleLogin = handleLogin;
+window.submitAnswer = submitAnswer;
+window.logoutUser = logoutUser;
+window.handleRedeemBonus = handleRedeemBonus;
+window.handlePurchaseItem = handlePurchaseItem;
+window.selectCashoutMethod = selectCashoutMethod;
+window.handleCashout = handleCashout;
+window.sendSupportMessage = sendSupportMessage;
+window.sendChatMessageNow = sendChatMessageNow;
+window.navigateTo = navigateTo;
+
+// Initialize app when DOM is loaded
+document.addEventListener('DOMContentLoaded', initializeApp);
+</script>
 </body>
 </html>
