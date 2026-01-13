@@ -1,637 +1,1862 @@
-// ==== CONTINUATION OF PART 2 HTML/JavaScript FRONTEND ====
-
-function loadShopPage() {
-    const shopPage = document.getElementById('shopPage');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IML Console - Earnings Platform</title>
     
-    // Build cashout section
-    const cashoutSection = `
-        <div style="margin-top: 30px;">
-            <div class="form-label">
-                <i class="fa fa-credit-card"></i> CASHOUT OPTIONS
-            </div>
-            <div class="row" style="margin-bottom: 15px;">
-                <div class="col-xs-12 col-md-4" style="margin-bottom: 15px;">
-                    <div class="shop-item" onclick="selectCashoutMethod('paypal')" id="cashoutPaypal" style="cursor: pointer; text-align: center;">
-                        <div style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;">
-                            <i class="fa fa-paypal"></i>
-                        </div>
-                        <div style="font-weight: 600; color: var(--light-text); margin-bottom: 5px;">
-                            PayPal
-                        </div>
-                        <div style="font-size: 11px; color: #AAAAAA;">
-                            Minimum 100 PTS = $10
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xs-12 col-md-4" style="margin-bottom: 15px;">
-                    <div class="shop-item" onclick="selectCashoutMethod('amazon')" id="cashoutAmazon" style="cursor: pointer; text-align: center;">
-                        <div style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;">
-                            <i class="fa fa-amazon"></i>
-                        </div>
-                        <div style="font-weight: 600; color: var(--light-text); margin-bottom: 5px;">
-                            Amazon Gift Card
-                        </div>
-                        <div style="font-size: 11px; color: #AAAAAA;">
-                            Minimum 50 PTS = $5
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xs-12 col-md-4" style="margin-bottom: 15px;">
-                    <div class="shop-item" onclick="selectCashoutMethod('bitcoin')" id="cashoutBitcoin" style="cursor: pointer; text-align: center;">
-                        <div style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;">
-                            <i class="fa fa-btc"></i>
-                        </div>
-                        <div style="font-weight: 600; color: var(--light-text); margin-bottom: 5px;">
-                            Bitcoin
-                        </div>
-                        <div style="font-size: 11px; color: #AAAAAA;">
-                            Minimum 200 PTS = $20
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="form-label">REQUEST CASHOUT</div>
-            <div class="row">
-                <div class="col-xs-12 col-sm-6">
-                    <input type="number" id="cashoutAmount" class="form-control-iml" placeholder="Amount (min 50 PTS)" min="50" step="1">
-                </div>
-                <div class="col-xs-12 col-sm-6">
-                    <input type="text" id="cashoutMethodInput" class="form-control-iml" placeholder="Select method above" readonly>
-                </div>
-            </div>
-            <div style="margin-top: 10px;">
-                <input type="text" id="cashoutDetails" class="form-control-iml" placeholder="PayPal email / Amazon account / Bitcoin address">
-            </div>
-            <button class="btn btn-iml" onclick="handleCashout()" style="width: 100%; margin-top: 15px;">
-                <i class="fa fa-check-circle"></i> REQUEST CASHOUT
-            </button>
-        </div>
-    `;
-
-    shopPage.innerHTML = `
-        <div class="panel panel-iml">
-            <div class="panel-heading">
-                <i class="fa fa-shopping-cart"></i> REWARDS SHOP
-            </div>
-            <div class="panel-body">
-                <div class="text-center" style="margin-bottom: 25px;">
-                    <div class="stat-card" style="display: inline-block; min-width: 200px;">
-                        <div class="stat-label">YOUR BALANCE</div>
-                        <div class="stat-value user-points" style="color: var(--secondary-color); font-size: 24px;">
-                            ${formatCurrency(appState.userPoints || 0)} PTS
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-label">AVAILABLE REWARDS</div>
-                <div id="shopItemsContainer" style="margin-bottom: 30px;">
-                    <!-- Shop items will be loaded here -->
-                </div>
-                
-                ${appState.currentUser ? cashoutSection : '<div class="text-center" style="padding: 20px; color: #AAAAAA;">Please login to view cashout options</div>'}
-            </div>
-        </div>
-    `;
-
-    // Load shop items dynamically
-    loadAndDisplayShopItems();
-}
-
-async function loadAndDisplayShopItems() {
-    const items = await loadShopItems();
-    const container = document.getElementById('shopItemsContainer');
+    <!-- Bootstrap 3.4.1 -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
     
-    if (!container) return;
+    <!-- Font Awesome 4.7.0 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     
-    if (items.length === 0) {
-        container.innerHTML = '<div class="text-center" style="color: #AAAAAA;">No items available</div>';
-        return;
-    }
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
     
-    let itemsHtml = '<div class="row">';
-    items.forEach(item => {
-        const canAfford = appState.currentUser && appState.userPoints >= item.cost;
-        itemsHtml += `
-            <div class="col-xs-12 col-sm-6 col-md-4" style="margin-bottom: 15px;">
-                <div class="shop-item">
-                    <div class="shop-item-header">
-                        <div class="shop-item-name">${item.name}</div>
-                        <div class="shop-item-cost">${item.cost} PTS</div>
-                    </div>
-                    <div class="shop-item-desc">${item.description}</div>
-                    <button class="btn btn-iml purchase-btn" 
-                            onclick="handlePurchaseItem(${item.id})" 
-                            data-cost="${item.cost}"
-                            ${!appState.currentUser || !canAfford ? 'disabled' : ''}
-                            style="width: 100%;">
-                        <i class="fa fa-shopping-cart"></i> PURCHASE
-                    </button>
-                </div>
-            </div>
-        `;
-    });
-    itemsHtml += '</div>';
-    
-    container.innerHTML = itemsHtml;
-}
-
-function selectCashoutMethod(method) {
-    // Reset all selections
-    document.getElementById('cashoutPaypal').style.borderColor = '#333333';
-    document.getElementById('cashoutAmazon').style.borderColor = '#333333';
-    document.getElementById('cashoutBitcoin').style.borderColor = '#333333';
-    
-    // Highlight selected
-    document.getElementById(`cashout${method.charAt(0).toUpperCase() + method.slice(1)}`).style.borderColor = 'var(--secondary-color)';
-    
-    // Update input
-    document.getElementById('cashoutMethodInput').value = method.toUpperCase();
-}
-
-async function handleCashout() {
-    const amount = document.getElementById('cashoutAmount').value;
-    const method = document.getElementById('cashoutMethodInput').value;
-    const details = document.getElementById('cashoutDetails').value;
-    
-    if (!amount || amount < 50) {
-        showMessage('Minimum cashout is 50 PTS', 'warning');
-        return;
-    }
-    
-    if (!method) {
-        showMessage('Please select a cashout method', 'warning');
-        return;
-    }
-    
-    if (!details) {
-        showMessage('Please enter payment details', 'warning');
-        return;
-    }
-    
-    if (appState.userPoints < amount) {
-        showMessage('Insufficient points', 'error');
-        return;
-    }
-    
-    const confirmCashout = confirm(`Request cashout of ${amount} PTS via ${method}?\n\nDetails: ${details}`);
-    if (!confirmCashout) return;
-    
-    const success = await requestCashout(amount, method, details);
-    if (success) {
-        document.getElementById('cashoutAmount').value = '';
-        document.getElementById('cashoutMethodInput').value = '';
-        document.getElementById('cashoutDetails').value = '';
-    }
-}
-
-async function loadLeadersPage() {
-    const leadersPage = document.getElementById('leadersPage');
-    const leaderboard = await loadLeaderboard();
-    
-    let leaderboardHtml = '';
-    leaderboard.forEach(leader => {
-        leaderboardHtml += `
-            <div class="leaderboard-row">
-                <div class="leaderboard-rank">${leader.rank}</div>
-                <div class="leaderboard-medal">
-                    ${leader.rank === 1 ? '<i class="fa fa-trophy" style="color: #FFD700;"></i>' : 
-                      leader.rank === 2 ? '<i class="fa fa-trophy" style="color: #C0C0C0;"></i>' : 
-                      leader.rank === 3 ? '<i class="fa fa-trophy" style="color: #CD7F32;"></i>' : 
-                      '<i class="fa fa-user"></i>'}
-                </div>
-                <div class="leaderboard-user">
-                    <div class="leaderboard-username">${leader.username}</div>
-                    <div class="leaderboard-level">${leader.level}</div>
-                </div>
-                <div class="leaderboard-points">${leader.pts} PTS</div>
-            </div>
-        `;
-    });
-    
-    leadersPage.innerHTML = `
-        <div class="panel panel-iml">
-            <div class="panel-heading">
-                <i class="fa fa-trophy"></i> LEADERBOARD
-            </div>
-            <div class="panel-body">
-                <div style="margin-bottom: 20px;">
-                    <div class="btn-group btn-group-justified">
-                        <button class="btn btn-iml active" style="border-radius: 4px 0 0 4px;">DAILY</button>
-                        <button class="btn btn-iml" style="border-radius: 0;">WEEKLY</button>
-                        <button class="btn btn-iml" style="border-radius: 0;">MONTHLY</button>
-                        <button class="btn btn-iml" style="border-radius: 0 4px 4px 0;">ALL TIME</button>
-                    </div>
-                </div>
-                
-                ${leaderboardHtml}
-                
-                ${appState.currentUser ? `
-                    <div style="margin-top: 25px;">
-                        <div class="stat-card">
-                            <div class="stat-label">YOUR POSITION</div>
-                            <div class="stat-value" style="color: var(--secondary-color);">#${leaderboard.findIndex(l => l.username === appState.currentUser.username) + 1 || 'N/A'}</div>
-                            <div class="stat-sub">${formatCurrency(appState.userPoints)} PTS</div>
-                        </div>
-                    </div>
-                ` : ''}
-            </div>
-        </div>
-    `;
-}
-
-function loadHelpPage() {
-    const helpPage = document.getElementById('helpPage');
-    helpPage.innerHTML = `
-        <div class="panel panel-iml">
-            <div class="panel-heading">
-                <i class="fa fa-question-circle"></i> HELP & SUPPORT
-            </div>
-            <div class="panel-body">
-                <div class="question-card">
-                    <div class="question-number">HOW DO I EARN POINTS?</div>
-                    <div class="question-text">
-                        • Answer questions correctly: +5 PTS each<br>
-                        • Daily login bonus: +5 PTS daily<br>
-                        • Complete profile: +10 PTS<br>
-                        • Refer friends: +25 PTS each<br>
-                        • Redeem bonus codes: Varies (10-100 PTS)<br>
-                        • Weekly streak: +50 PTS for 7 consecutive days
-                    </div>
-                </div>
-                
-                <div class="question-card">
-                    <div class="question-number">HOW DO I CASHOUT?</div>
-                    <div class="question-text">
-                        1. Go to Shop page<br>
-                        2. Select cashout method (PayPal, Amazon, Bitcoin)<br>
-                        3. Enter amount (minimum 50 PTS)<br>
-                        4. Provide payment details<br>
-                        5. Submit request<br><br>
-                        Cashouts are processed within 3-5 business days.
-                    </div>
-                </div>
-                
-                <div class="question-card">
-                    <div class="question-number">WHAT IS THE REVERSAL RATE?</div>
-                    <div class="question-text">
-                        The reversal rate is a quality control metric. Lower is better.<br>
-                        • Correct answers decrease reversal by 0.1<br>
-                        • Incorrect answers increase reversal by 0.2<br>
-                        • If reversal exceeds 3%, some points may be held for 15 days
-                    </div>
-                </div>
-                
-                <div class="question-card">
-                    <div class="question-number">WHERE IS MY DATA STORED?</div>
-                    <div class="question-text">
-                        All data is stored securely in Google Sheets. Your progress syncs instantly with Google's servers. We never store passwords in plain text.
-                    </div>
-                </div>
-                
-                <div class="question-card">
-                    <div class="question-number">HOW DO I CONTACT SUPPORT?</div>
-                    <div class="question-text">
-                        • Use the Live Chat feature (available 9AM-5PM GMT)<br>
-                        • Email: support@imlconsole.com<br>
-                        • Response time: 24-48 hours<br><br>
-                        For urgent issues, please use the chat feature.
-                    </div>
-                </div>
-                
-                <div style="margin-top: 30px;">
-                    <div class="form-label">CONTACT SUPPORT</div>
-                    <input type="text" id="supportSubject" class="form-control-iml" placeholder="Subject">
-                    <textarea id="supportMessage" class="form-control-iml" placeholder="Your message..." rows="4" style="margin-top: 10px;"></textarea>
-                    <button class="btn btn-iml" onclick="sendSupportMessage()" style="width: 100%; margin-top: 15px;">
-                        <i class="fa fa-paper-plane"></i> SEND MESSAGE
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-async function loadChatPage() {
-    const chatPage = document.getElementById('chatPage');
-    await loadChatMessages();
-    
-    let messagesHtml = '';
-    appState.chatMessages.forEach(msg => {
-        const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const senderClass = msg.sender === 'User' ? 'user' : 'support';
-        messagesHtml += `
-            <div class="chat-message ${senderClass}">
-                <div class="chat-sender ${senderClass}">
-                    ${msg.sender} • ${time}
-                </div>
-                <div class="chat-text">
-                    ${msg.message}
-                </div>
-            </div>
-        `;
-    });
-    
-    chatPage.innerHTML = `
-        <div class="panel panel-iml">
-            <div class="panel-heading">
-                <i class="fa fa-comments"></i> LIVE CHAT
-            </div>
-            <div class="panel-body">
-                <div class="chat-container" id="chatMessagesContainer">
-                    ${messagesHtml}
-                </div>
-                
-                <div style="margin-top: 15px;">
-                    <div class="input-group">
-                        <input type="text" id="chatMessageInput" class="form-control-iml" placeholder="Type your message..." ${!appState.currentUser ? 'disabled' : ''}>
-                        <span class="input-group-btn">
-                            <button class="btn btn-iml" onclick="sendChatMessageNow()" ${!appState.currentUser ? 'disabled' : ''}>
-                                <i class="fa fa-paper-plane"></i>
-                            </button>
-                        </span>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 25px; padding: 15px; background-color: rgba(0, 255, 224, 0.1); border-radius: 6px; border: 1px solid var(--primary-color);">
-                    <strong>CHAT INFORMATION:</strong><br>
-                    • Support available: 9 AM - 5 PM (GMT)<br>
-                    • Typical response time: 5-10 minutes<br>
-                    • Chat history saved for 7 days<br>
-                    • For urgent issues: support@imlconsole.com
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Scroll to bottom of chat
-    const container = document.getElementById('chatMessagesContainer');
-    if (container) {
-        container.scrollTop = container.scrollHeight;
-    }
-}
-
-// ==== EVENT HANDLERS ===============================================
-function handleLogin() {
-    const username = document.getElementById('loginUsername').value.trim();
-    const password = document.getElementById('loginPassword').value.trim();
-    
-    if (!username || !password) {
-        showMessage('Please enter username and password', 'warning');
-        return;
-    }
-    
-    loginUser(username, password);
-}
-
-async function handleRedeemBonus() {
-    const code = document.getElementById('bonusCodeInput').value.trim();
-    if (!code) {
-        showMessage('Please enter a bonus code', 'warning');
-        return;
-    }
-    
-    const success = await redeemBonusCode(code);
-    if (success) {
-        document.getElementById('bonusCodeInput').value = '';
-    }
-}
-
-async function handlePurchaseItem(itemId) {
-    if (!appState.currentUser) {
-        showMessage('Please login first', 'error');
-        return;
-    }
-    
-    const confirmPurchase = confirm('Are you sure you want to purchase this item?');
-    if (!confirmPurchase) return;
-    
-    const code = await purchaseItem(itemId);
-    if (code) {
-        showMessage(`Purchase successful! Your code: ${code}`, 'success');
-        loadAndDisplayShopItems();
-    }
-}
-
-function sendSupportMessage() {
-    const subject = document.getElementById('supportSubject').value.trim();
-    const message = document.getElementById('supportMessage').value.trim();
-    
-    if (!subject || !message) {
-        showMessage('Please fill in both fields', 'warning');
-        return;
-    }
-    
-    // In a real app, you would send this to your backend
-    showMessage('Message sent to support. We will respond within 24 hours.', 'success');
-    document.getElementById('supportSubject').value = '';
-    document.getElementById('supportMessage').value = '';
-}
-
-function sendChatMessageNow() {
-    const input = document.getElementById('chatMessageInput');
-    const message = input.value.trim();
-    
-    if (!message) return;
-    
-    if (!appState.currentUser) {
-        showMessage('Please login to use chat', 'error');
-        return;
-    }
-    
-    // Add message to UI immediately
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const messagesContainer = document.getElementById('chatMessagesContainer');
-    
-    messagesContainer.innerHTML += `
-        <div class="chat-message user">
-            <div class="chat-sender user">
-                You • ${time}
-            </div>
-            <div class="chat-text">
-                ${message}
-            </div>
-        </div>
-    `;
-    
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    
-    // Clear input
-    input.value = '';
-    
-    // Send to server
-    sendChatMessage(message);
-    
-    // Load updated messages after a delay
-    setTimeout(() => {
-        loadChatMessages();
-    }, 1000);
-}
-
-function logoutUser() {
-    appState.currentUser = null;
-    appState.userPoints = 0;
-    appState.userReversal = 0;
-    
-    localStorage.removeItem('iml_sessionId');
-    localStorage.removeItem('iml_username');
-    
-    showMessage('Logged out successfully', 'success');
-    loadHomePage();
-}
-
-// ==== PAGE NAVIGATION ==============================================
-function navigateTo(page) {
-    // Update active state in desktop nav
-    document.querySelectorAll('.navbar-nav li').forEach(li => {
-        li.classList.remove('active');
-        if (li.dataset.page === page) {
-            li.classList.add('active');
+    <style>
+        /* ==== CUSTOM STYLES ==== */
+        :root {
+            --primary-color: #00FFE0;
+            --secondary-color: #FF00AA;
+            --dark-bg: #0A0C14;
+            --darker-bg: #000000;
+            --light-text: #FFFFFF;
+            --success-color: #00FF00;
+            --danger-color: #FF0000;
+            --warning-color: #FFFF00;
         }
-    });
-    
-    // Update active state in mobile nav
-    document.querySelectorAll('.mobile-nav-item').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.page === page) {
-            btn.classList.add('active');
-        }
-    });
-    
-    // Hide all pages
-    document.querySelectorAll('.page-section').forEach(section => {
-        section.classList.remove('active');
-    });
-    
-    // Show selected page
-    document.getElementById(`${page}Page`).classList.add('active');
-    
-    // Load page content
-    appState.currentPage = page;
-    
-    switch(page) {
-        case 'home':
-            loadHomePage();
-            break;
-        case 'earn':
-            loadEarnPage();
-            break;
-        case 'shop':
-            loadShopPage();
-            break;
-        case 'leaders':
-            loadLeadersPage();
-            break;
-        case 'help':
-            loadHelpPage();
-            break;
-        case 'chat':
-            loadChatPage();
-            break;
-    }
-}
-
-// ==== INITIALIZATION ===============================================
-async function initializeApp() {
-    // Check for existing session
-    const savedUsername = localStorage.getItem('iml_username');
-    const savedSessionId = localStorage.getItem('iml_sessionId');
-    
-    if (savedUsername && savedSessionId) {
-        showLoading('Restoring session...');
         
-        // Try to login with saved credentials
-        const result = await apiCall('login', {
-            username: savedUsername,
-            password: 'password123' // Note: In production, you shouldn't store passwords
-        });
-        
-        if (result) {
-            appState.currentUser = result.user;
-            appState.userPoints = result.user.pts;
-            appState.userReversal = result.user.reversal;
-            showMessage('Welcome back!', 'success');
-        } else {
-            localStorage.removeItem('iml_username');
-            localStorage.removeItem('iml_sessionId');
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-    }
-    
-    // Set up navigation event listeners
-    document.querySelectorAll('.navbar-nav li a').forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const page = this.parentElement.dataset.page;
-            navigateTo(page);
-        });
-    });
-    
-    document.querySelectorAll('.mobile-nav-item').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const page = this.dataset.page;
-            navigateTo(page);
-        });
-    });
-    
-    // Set up Enter key for login
-    document.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            if (appState.currentPage === 'home' && !appState.currentUser) {
-                const usernameInput = document.getElementById('loginUsername');
-                const passwordInput = document.getElementById('loginPassword');
-                if (usernameInput && document.activeElement === usernameInput) {
-                    passwordInput.focus();
-                } else if (passwordInput && document.activeElement === passwordInput) {
-                    handleLogin();
-                }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            font-family: 'Ubuntu', 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+        
+        /* ==== NAVIGATION ==== */
+        .navbar-iml {
+            background-color: var(--darker-bg);
+            border: none;
+            border-radius: 0;
+            margin-bottom: 0;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .navbar-iml .navbar-brand {
+            color: var(--primary-color) !important;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+        
+        .navbar-iml .navbar-brand i {
+            margin-right: 8px;
+        }
+        
+        .navbar-iml .nav > li > a {
+            color: var(--light-text) !important;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 1px;
+            padding: 15px 12px;
+        }
+        
+        .navbar-iml .nav > li > a:hover,
+        .navbar-iml .nav > li.active > a {
+            background-color: var(--primary-color) !important;
+            color: var(--darker-bg) !important;
+        }
+        
+        /* ==== MOBILE HEADER ==== */
+        .mobile-header {
+            display: none;
+            background-color: var(--darker-bg);
+            padding: 12px 15px;
+            border-bottom: 2px solid var(--primary-color);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .mobile-header .logo {
+            color: var(--primary-color);
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .mobile-header .logo i {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+        
+        /* ==== PROMO BAR ==== */
+        .promo-bar {
+            background-color: var(--darker-bg);
+            color: var(--light-text);
+            text-align: center;
+            padding: 8px 15px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            border-bottom: 2px solid var(--secondary-color);
+        }
+        
+        /* ==== MAIN CONTENT ==== */
+        .main-content {
+            padding: 20px 15px;
+            min-height: calc(100vh - 120px);
+        }
+        
+        /* ==== PANELS ==== */
+        .panel-iml {
+            background-color: var(--darker-bg);
+            border: 2px solid var(--primary-color);
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 255, 224, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .panel-iml .panel-heading {
+            background-color: var(--darker-bg);
+            border-bottom: 2px solid var(--secondary-color);
+            color: var(--primary-color);
+            padding: 12px 15px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 600;
+        }
+        
+        .panel-iml .panel-heading i {
+            margin-right: 8px;
+        }
+        
+        .panel-iml .panel-body {
+            background-color: var(--dark-bg);
+            padding: 20px;
+            border-radius: 0 0 6px 6px;
+        }
+        
+        /* ==== FORMS & INPUTS ==== */
+        .form-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--light-text);
+            margin-bottom: 5px;
+            font-weight: 500;
+            display: block;
+        }
+        
+        .form-control-iml {
+            background-color: var(--darker-bg);
+            border: 2px solid #555555;
+            border-radius: 4px;
+            color: var(--light-text);
+            height: 40px;
+            padding: 8px 12px;
+            font-size: 14px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        
+        .form-control-iml:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 255, 224, 0.3);
+        }
+        
+        /* ==== BUTTONS ==== */
+        .btn-iml {
+            background-color: var(--secondary-color);
+            border: 2px solid var(--secondary-color);
+            color: var(--light-text);
+            border-radius: 4px;
+            padding: 10px 20px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.3px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-iml:hover {
+            background-color: #FF33BB;
+            border-color: #FF33BB;
+            color: var(--light-text);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 0, 170, 0.3);
+        }
+        
+        .btn-iml:disabled {
+            background-color: #444444;
+            border-color: #333333;
+            color: #777777;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-iml-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            color: var(--darker-bg);
+        }
+        
+        .btn-iml-primary:hover {
+            background-color: #33FFE8;
+            border-color: #33FFE8;
+            color: var(--darker-bg);
+        }
+        
+        /* ==== STATS CARDS ==== */
+        .stats-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            flex: 1 1 120px;
+            min-width: 120px;
+            background-color: var(--darker-bg);
+            border: 2px solid #333333;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--light-text);
+            line-height: 1.2;
+        }
+        
+        .stat-sub {
+            font-size: 10px;
+            color: #AAAAAA;
+            margin-top: 3px;
+        }
+        
+        /* ==== QUESTION CARDS ==== */
+        .question-card {
+            background-color: var(--darker-bg);
+            border: 2px solid #333333;
+            border-radius: 6px;
+            padding: 18px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .question-card:hover {
+            border-color: #555555;
+        }
+        
+        .question-number {
+            font-size: 11px;
+            color: var(--primary-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .question-text {
+            font-size: 14px;
+            color: var(--light-text);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        
+        /* ==== SHOP ITEMS ==== */
+        .shop-item {
+            background-color: var(--darker-bg);
+            border: 2px solid #333333;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .shop-item:hover {
+            border-color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        
+        .shop-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .shop-item-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .shop-item-cost {
+            background-color: var(--secondary-color);
+            color: var(--light-text);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .shop-item-desc {
+            font-size: 12px;
+            color: #CCCCCC;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        
+        /* ==== LEADERBOARD ==== */
+        .leaderboard-row {
+            display: flex;
+            align-items: center;
+            background-color: var(--darker-bg);
+            border: 1px solid #333333;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+        }
+        
+        .leaderboard-rank {
+            width: 40px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        
+        .leaderboard-medal {
+            width: 30px;
+            text-align: center;
+            font-size: 18px;
+        }
+        
+        .leaderboard-user {
+            flex: 1;
+            padding: 0 15px;
+        }
+        
+        .leaderboard-username {
+            font-weight: 600;
+            color: var(--light-text);
+        }
+        
+        .leaderboard-level {
+            font-size: 10px;
+            color: #AAAAAA;
+            text-transform: uppercase;
+        }
+        
+        .leaderboard-points {
+            text-align: right;
+            font-weight: 700;
+            color: var(--success-color);
+        }
+        
+        /* ==== TRANSACTIONS ==== */
+        .transaction-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--darker-bg);
+            border: 1px solid #333333;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+        }
+        
+        .transaction-info {
+            flex: 1;
+        }
+        
+        .transaction-type {
+            font-weight: 600;
+            color: var(--light-text);
+            margin-bottom: 3px;
+        }
+        
+        .transaction-date {
+            font-size: 10px;
+            color: #888888;
+        }
+        
+        .transaction-amount {
+            font-weight: 700;
+            font-size: 14px;
+        }
+        
+        .transaction-amount.positive {
+            color: var(--success-color);
+        }
+        
+        .transaction-amount.negative {
+            color: var(--danger-color);
+        }
+        
+        /* ==== CHAT ==== */
+        .chat-container {
+            height: 300px;
+            overflow-y: auto;
+            background-color: var(--darker-bg);
+            border: 2px solid #333333;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .chat-message {
+            margin-bottom: 12px;
+            padding: 10px;
+            border-radius: 6px;
+            max-width: 80%;
+        }
+        
+        .chat-message.user {
+            background-color: rgba(255, 0, 170, 0.1);
+            border-left: 3px solid var(--secondary-color);
+            margin-left: auto;
+        }
+        
+        .chat-message.support {
+            background-color: rgba(0, 255, 224, 0.1);
+            border-left: 3px solid var(--primary-color);
+        }
+        
+        .chat-sender {
+            font-weight: 600;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+        
+        .chat-sender.user {
+            color: var(--secondary-color);
+        }
+        
+        .chat-sender.support {
+            color: var(--primary-color);
+        }
+        
+        .chat-text {
+            font-size: 13px;
+            color: var(--light-text);
+            line-height: 1.4;
+        }
+        
+        .chat-time {
+            font-size: 9px;
+            color: #888888;
+            text-align: right;
+            margin-top: 3px;
+        }
+        
+        /* ==== STATUS MESSAGES ==== */
+        .status-message {
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-size: 13px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .status-success {
+            background-color: rgba(0, 255, 0, 0.1);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+            display: block;
+        }
+        
+        .status-error {
+            background-color: rgba(255, 0, 0, 0.1);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+            display: block;
+        }
+        
+        .status-warning {
+            background-color: rgba(255, 255, 0, 0.1);
+            border: 1px solid var(--warning-color);
+            color: var(--warning-color);
+            display: block;
+        }
+        
+        .status-info {
+            background-color: rgba(0, 255, 224, 0.1);
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            display: block;
+        }
+        
+        /* ==== MOBILE NAVIGATION ==== */
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--darker-bg);
+            border-top: 2px solid var(--secondary-color);
+            padding: 8px 0;
+            z-index: 1000;
+        }
+        
+        .mobile-nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 8px 5px;
+            color: #CCCCCC;
+            text-decoration: none;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.9px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s ease;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+        
+        .mobile-nav-item i {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        
+        .mobile-nav-item.active {
+            color: var(--light-text);
+            background-color: var(--secondary-color);
+        }
+        
+        /* ==== PAGE SECTIONS ==== */
+        .page-section {
+            display: none;
+        }
+        
+        .page-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* ==== RESPONSIVE DESIGN ==== */
+        @media (max-width: 767px) {
+            .navbar-iml {
+                display: none;
             }
             
-            // Enter key for chat
-            if (appState.currentPage === 'chat') {
-                const chatInput = document.getElementById('chatMessageInput');
-                if (chatInput && document.activeElement === chatInput) {
-                    sendChatMessageNow();
-                }
+            .mobile-header {
+                display: flex;
             }
             
-            // Enter key for answers
-            if (appState.currentPage === 'home' && appState.currentUser) {
-                for (let i = 1; i <= 3; i++) {
-                    const answerInput = document.getElementById(`answerInput${i}`);
-                    if (answerInput && document.activeElement === answerInput) {
-                        submitAnswer(i.toString(), answerInput.value);
-                        break;
+            .mobile-nav {
+                display: flex;
+            }
+            
+            .main-content {
+                padding: 15px 12px;
+                padding-bottom: 70px;
+            }
+            
+            .promo-bar {
+                font-size: 10px;
+                padding: 6px 12px;
+            }
+            
+            .stats-grid {
+                gap: 10px;
+            }
+            
+            .stat-card {
+                min-width: calc(50% - 10px);
+            }
+            
+            .btn-iml {
+                padding: 12px 15px;
+                font-size: 13px;
+            }
+        }
+        
+        @media (min-width: 768px) {
+            .mobile-header,
+            .mobile-nav {
+                display: none;
+            }
+            
+            .navbar-iml {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile Header -->
+    <div class="mobile-header">
+        <div class="logo">
+            <i class="fa fa-signal"></i>
+            IML CONSOLE
+        </div>
+    </div>
+    
+    <!-- Desktop Navigation -->
+    <nav class="navbar navbar-iml">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="#">
+                    <i class="fa fa-signal"></i>
+                    IML CONSOLE
+                </a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li class="active" data-page="home">
+                    <a href="#"><i class="fa fa-home"></i> HOME</a>
+                </li>
+                <li data-page="earn">
+                    <a href="#"><i class="fa fa-money"></i> EARN</a>
+                </li>
+                <li data-page="shop">
+                    <a href="#"><i class="fa fa-shopping-cart"></i> SHOP</a>
+                </li>
+                <li data-page="leaders">
+                    <a href="#"><i class="fa fa-trophy"></i> LEADERS</a>
+                </li>
+                <li data-page="help">
+                    <a href="#"><i class="fa fa-question-circle"></i> HELP</a>
+                </li>
+                <li data-page="chat">
+                    <a href="#"><i class="fa fa-comments"></i> CHAT</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    
+    <!-- Promo Bar -->
+    <div class="promo-bar">
+        <i class="fa fa-bolt"></i> LIVE GOOGLE SHEETS SYNC • REDEEM BONUSES • INSTANT CASHOUT
+    </div>
+    
+    <!-- Main Content -->
+    <div class="container-fluid main-content">
+        <!-- Status Messages -->
+        <div id="statusMessage" class="status-message"></div>
+        
+        <!-- Page Sections -->
+        <div id="homePage" class="page-section active">
+            <!-- Home page content will be loaded here -->
+        </div>
+        
+        <div id="earnPage" class="page-section">
+            <!-- Earn page content will be loaded here -->
+        </div>
+        
+        <div id="shopPage" class="page-section">
+            <!-- Shop page content will be loaded here -->
+        </div>
+        
+        <div id="leadersPage" class="page-section">
+            <!-- Leaders page content will be loaded here -->
+        </div>
+        
+        <div id="helpPage" class="page-section">
+            <!-- Help page content will be loaded here -->
+        </div>
+        
+        <div id="chatPage" class="page-section">
+            <!-- Chat page content will be loaded here -->
+        </div>
+    </div>
+    
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav">
+        <button class="mobile-nav-item active" data-page="home">
+            <i class="fa fa-home"></i>
+            <span>HOME</span>
+        </button>
+        <button class="mobile-nav-item" data-page="earn">
+            <i class="fa fa-money"></i>
+            <span>EARN</span>
+        </button>
+        <button class="mobile-nav-item" data-page="shop">
+            <i class="fa fa-shopping-cart"></i>
+            <span>SHOP</span>
+        </button>
+        <button class="mobile-nav-item" data-page="leaders">
+            <i class="fa fa-trophy"></i>
+            <span>LEADERS</span>
+        </button>
+        <button class="mobile-nav-item" data-page="help">
+            <i class="fa fa-question-circle"></i>
+            <span>HELP</span>
+        </button>
+        <button class="mobile-nav-item" data-page="chat">
+            <i class="fa fa-comments"></i>
+            <span>CHAT</span>
+        </button>
+    </div>
+    
+    <!-- JavaScript -->
+    <script>
+        // ==== CONFIGURATION ==========================================
+        const API_BASE_URL = "https://script.google.com/macros/s/AKfycbxWE8QgOCifiQzjWJLAaX4Vz-BPYIKEuHDNnY7fAQgVTM-c0gMVlygSeG1V50IRS1eeLA/exec";
+        
+        // ==== APPLICATION STATE =======================================
+        let appState = {
+            currentUser: null,
+            userPoints: 0,
+            userReversal: 0,
+            currentPage: 'home',
+            shopItems: [],
+            leaderboard: [],
+            transactions: [],
+            chatMessages: []
+        };
+        
+        // ==== UTILITY FUNCTIONS =======================================
+        function showMessage(message, type = 'info') {
+            const msgDiv = document.getElementById('statusMessage');
+            msgDiv.className = `status-message status-${type}`;
+            msgDiv.textContent = message;
+            msgDiv.style.display = 'block';
+            
+            if (type !== 'error') {
+                setTimeout(() => {
+                    msgDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        function showLoading(message = 'Loading...') {
+            showMessage(message, 'info');
+        }
+        
+        function hideMessage() {
+            document.getElementById('statusMessage').style.display = 'none';
+        }
+        
+        function formatCurrency(amount) {
+            return parseFloat(amount).toFixed(2);
+        }
+        
+        // ==== API FUNCTIONS ===========================================
+        async function apiCall(action, data = {}) {
+            try {
+                const params = new URLSearchParams();
+                params.append('action', action);
+                
+                for (const key in data) {
+                    if (data[key] !== undefined && data[key] !== null) {
+                        params.append(key, data[key]);
                     }
                 }
+                
+                const response = await fetch(`${API_BASE_URL}?${params.toString()}`);
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showMessage(result.error || 'API Error', 'error');
+                    return null;
+                }
+                
+                return result;
+                
+            } catch (error) {
+                showMessage('Network error. Please check your connection.', 'error');
+                console.error('API Error:', error);
+                return null;
             }
         }
-    });
-    
-    // Load initial page
-    navigateTo('home');
-    
-    // Test API connection
-    const testResult = await apiCall('test');
-    if (testResult) {
-        console.log('API Connected:', testResult);
-    }
-}
+        
+        async function loginUser(username, password) {
+            showLoading('Logging in...');
+            
+            const result = await apiCall('login', { username, password });
+            
+            if (result) {
+                appState.currentUser = result.user;
+                appState.userPoints = result.user.pts;
+                appState.userReversal = result.user.reversal;
+                
+                localStorage.setItem('iml_sessionId', result.sessionId);
+                localStorage.setItem('iml_username', username);
+                
+                showMessage('Login successful!', 'success');
+                loadHomePage();
+                return true;
+            }
+            
+            return false;
+        }
+        
+        async function submitAnswer(questionId, answer) {
+            if (!appState.currentUser) {
+                showMessage('Please login first', 'error');
+                return;
+            }
+            
+            showLoading('Submitting answer...');
+            
+            const result = await apiCall('submitAnswer', {
+                username: appState.currentUser.username,
+                questionId: questionId,
+                answer: answer
+            });
+            
+            if (result) {
+                if (result.correct) {
+                    appState.userPoints = result.newPts;
+                    appState.userReversal = result.newReversal;
+                    showMessage(result.message, 'success');
+                    
+                    // Update UI
+                    updateUserStats();
+                    
+                    // Clear input
+                    const input = document.getElementById(`answerInput${questionId}`);
+                    if (input) input.value = '';
+                } else {
+                    showMessage(result.message, 'warning');
+                }
+            }
+        }
+        
+        async function redeemBonusCode(code) {
+            if (!appState.currentUser) {
+                showMessage('Please login first', 'error');
+                return;
+            }
+            
+            showLoading('Redeeming bonus code...');
+            
+            const result = await apiCall('redeemBonus', {
+                username: appState.currentUser.username,
+                code: code
+            });
+            
+            if (result) {
+                appState.userPoints = result.newPts;
+                updateUserStats();
+                showMessage(result.message, 'success');
+                return true;
+            }
+            
+            return false;
+        }
+        
+        async function requestCashout(amount, method, details) {
+            if (!appState.currentUser) {
+                showMessage('Please login first', 'error');
+                return;
+            }
+            
+            showLoading('Processing cashout request...');
+            
+            const result = await apiCall('requestCashout', {
+                username: appState.currentUser.username,
+                amount: amount,
+                method: method,
+                details: details
+            });
+            
+            if (result) {
+                appState.userPoints = result.newPts;
+                updateUserStats();
+                showMessage(result.message, 'success');
+                return true;
+            }
+            
+            return false;
+        }
+        
+        async function purchaseItem(itemId) {
+            if (!appState.currentUser) {
+                showMessage('Please login first', 'error');
+                return;
+            }
+            
+            showLoading('Processing purchase...');
+            
+            const result = await apiCall('purchaseItem', {
+                username: appState.currentUser.username,
+                itemId: itemId
+            });
+            
+            if (result) {
+                appState.userPoints = result.newPts;
+                updateUserStats();
+                showMessage(result.message, 'success');
+                return result.code;
+            }
+            
+            return null;
+        }
+        
+        async function loadShopItems() {
+            const result = await apiCall('getShopItems');
+            if (result) {
+                appState.shopItems = result.items;
+                return result.items;
+            }
+            return [];
+        }
+        
+        async function loadLeaderboard() {
+            const result = await apiCall('getLeaderboard');
+            if (result) {
+                appState.leaderboard = result.leaderboard;
+                return result.leaderboard;
+            }
+            return [];
+        }
+        
+        async function loadTransactions() {
+            if (!appState.currentUser) return [];
+            
+            const result = await apiCall('getTransactions', {
+                username: appState.currentUser.username
+            });
+            
+            if (result) {
+                appState.transactions = result.transactions;
+                return result.transactions;
+            }
+            return [];
+        }
+        
+        async function sendChatMessage(message) {
+            if (!appState.currentUser) {
+                showMessage('Please login first', 'error');
+                return;
+            }
+            
+            const result = await apiCall('addChatMessage', {
+                username: appState.currentUser.username,
+                message: message,
+                sender: 'User'
+            });
+            
+            if (result) {
+                loadChatMessages();
+                return true;
+            }
+            
+            return false;
+        }
+        
+        async function loadChatMessages() {
+            const result = await apiCall('getChatMessages');
+            if (result) {
+                appState.chatMessages = result.messages;
+                return result.messages;
+            }
+            return [];
+        }
+        
+        // ==== PAGE LOADING FUNCTIONS =================================
+        function updateUserStats() {
+            // Update points in various places
+            const pointElements = document.querySelectorAll('.user-points');
+            pointElements.forEach(el => {
+                el.textContent = formatCurrency(appState.userPoints);
+            });
+            
+            const reversalElements = document.querySelectorAll('.user-reversal');
+            reversalElements.forEach(el => {
+                el.textContent = formatCurrency(appState.userReversal) + '%';
+            });
+            
+            // Update shop item buttons
+            document.querySelectorAll('.purchase-btn').forEach(btn => {
+                const cost = parseInt(btn.dataset.cost);
+                btn.disabled = appState.userPoints < cost;
+            });
+        }
+        
+        function loadHomePage() {
+            const homePage = document.getElementById('homePage');
+            
+            if (!appState.currentUser) {
+                // Show login form
+                homePage.innerHTML = `
+                    <div class="panel panel-iml">
+                        <div class="panel-heading">
+                            <i class="fa fa-lock"></i> USER LOGIN
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label class="form-label">Username</label>
+                                <input type="text" id="loginUsername" class="form-control-iml" placeholder="Enter username">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Password</label>
+                                <input type="password" id="loginPassword" class="form-control-iml" placeholder="Enter password">
+                            </div>
+                            <button class="btn btn-iml btn-block" onclick="handleLogin()">
+                                <i class="fa fa-sign-in"></i> LOGIN
+                            </button>
+                            <div class="text-center" style="margin-top: 15px;">
+                                <small style="color: #AAAAAA;">Demo: operator001 / password123</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Show dashboard
+                homePage.innerHTML = `
+                    <div class="panel panel-iml">
+                        <div class="panel-heading">
+                            <i class="fa fa-dashboard"></i> DASHBOARD
+                        </div>
+                        <div class="panel-body">
+                            <div style="margin-bottom: 15px;">
+                                <span style="color: #AAAAAA;">Logged in as:</span>
+                                <strong style="color: var(--primary-color);">${appState.currentUser.username}</strong>
+                                <span class="pull-right" style="background-color: #00AA00; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px;">
+                                    ${appState.currentUser.status}
+                                </span>
+                            </div>
+                            
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-label">POINTS</div>
+                                    <div class="stat-value user-points">${formatCurrency(appState.userPoints)}</div>
+                                    <div class="stat-sub">Available balance</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-label">REVERSAL</div>
+                                    <div class="stat-value user-reversal">${formatCurrency(appState.userReversal)}%</div>
+                                    <div class="stat-sub">Quality score</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-label">RATE</div>
+                                    <div class="stat-value">10</div>
+                                    <div class="stat-sub">Base rate</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-label">HOLD</div>
+                                    <div class="stat-value">0.00</div>
+                                    <div class="stat-sub">No holds</div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin: 25px 0 15px;">
+                                <div class="form-label">
+                                    <i class="fa fa-question-circle"></i> ANSWER QUESTIONS
+                                </div>
+                                <div class="question-card">
+                                    <div class="question-number">QUESTION #1</div>
+                                    <div class="question-text">${appState.currentUser.q1 || "What is 5 + 7?"}</div>
+                                    <input type="text" id="answerInput1" class="form-control-iml" placeholder="Your answer">
+                                    <button class="btn btn-iml" onclick="submitAnswer('1', document.getElementById('answerInput1').value)" style="margin-top: 10px;">
+                                        <i class="fa fa-paper-plane"></i> SUBMIT ANSWER
+                                    </button>
+                                </div>
+                                <div class="question-card">
+                                    <div class="question-number">QUESTION #2</div>
+                                    <div class="question-text">${appState.currentUser.q2 || "What is the capital of France?"}</div>
+                                    <input type="text" id="answerInput2" class="form-control-iml" placeholder="Your answer">
+                                    <button class="btn btn-iml" onclick="submitAnswer('2', document.getElementById('answerInput2').value)" style="margin-top: 10px;">
+                                        <i class="fa fa-paper-plane"></i> SUBMIT ANSWER
+                                    </button>
+                                </div>
+                                <div class="question-card">
+                                    <div class="question-number">QUESTION #3</div>
+                                    <div class="question-text">${appState.currentUser.q3 || "What color is the sky on a clear day?"}</div>
+                                    <input type="text" id="answerInput3" class="form-control-iml" placeholder="Your answer">
+                                    <button class="btn btn-iml" onclick="submitAnswer('3', document.getElementById('answerInput3').value)" style="margin-top: 10px;">
+                                        <i class="fa fa-paper-plane"></i> SUBMIT ANSWER
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <button class="btn btn-iml" onclick="logoutUser()" style="width: 100%;">
+                                <i class="fa fa-sign-out"></i> LOGOUT
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        function loadEarnPage() {
+            const earnPage = document.getElementById('earnPage');
+            earnPage.innerHTML = `
+                <div class="panel panel-iml">
+                    <div class="panel-heading">
+                        <i class="fa fa-money"></i> EARN POINTS
+                    </div>
+                    <div class="panel-body">
+                        <div class="form-label">REDEEM BONUS CODE</div>
+                        <div class="input-group" style="margin-bottom: 20px;">
+                            <input type="text" id="bonusCodeInput" class="form-control-iml" placeholder="Enter bonus code (e.g., WELCOME2024)">
+                            <span class="input-group-btn">
+                                <button class="btn btn-iml" onclick="handleRedeemBonus()">
+                                    <i class="fa fa-gift"></i> REDEEM
+                                </button>
+                            </span>
+                        </div>
+                        
+                        <div class="form-label" style="margin-top: 25px;">QUICK TASKS</div>
+                        <div class="shop-item">
+                            <div class="shop-item-header">
+                                <div class="shop-item-name">Daily Login Bonus</div>
+                                <div class="shop-item-cost">+5 PTS</div>
+                            </div>
+                            <div class="shop-item-desc">Login daily to receive bonus points</div>
+                            <button class="btn btn-iml" disabled style="width: 100%;">
+                                <i class="fa fa-check"></i> CLAIMED TODAY
+                            </button>
+                        </div>
+                        
+                        <div class="shop-item">
+                            <div class="shop-item-header">
+                                <div class="shop-item-name">Complete Profile</div>
+                                <div class="shop-item-cost">+10 PTS</div>
+                            </div>
+                            <div class="shop-item-desc">Add profile information to earn bonus</div>
+                            <button class="btn btn-iml" onclick="showMessage('Feature coming soon!', 'info')" style="width: 100%;">
+                                <i class="fa fa-user-plus"></i> COMPLETE PROFILE
+                            </button>
+                        </div>
+                        
+                        <div class="shop-item">
+                            <div class="shop-item-header">
+                                <div class="shop-item-name">Refer a Friend</div>
+                                <div class="shop-item-cost">+25 PTS</div>
+                            </div>
+                            <div class="shop-item-desc">Invite friends and earn referral bonuses</div>
+                            <button class="btn btn-iml" onclick="showMessage('Share your referral link: imlconsole.com/ref/' + (appState.currentUser ? appState.currentUser.username : 'user'), 'info')" style="width: 100%;">
+                                <i class="fa fa-share-alt"></i> INVITE FRIENDS
+                            </button>
+                        </div>
+                        
+                        <div style="margin-top: 25px; padding: 15px; background-color: rgba(0, 255, 224, 0.1); border-radius: 6px; border: 1px solid var(--primary-color);">
+                            <strong>WAYS TO EARN:</strong><br>
+                            • Answer questions correctly (+5 PTS each)<br>
+                            • Daily login bonus (+5 PTS daily)<br>
+                            • Complete profile (+10 PTS)<br>
+                            • Refer friends (+25 PTS each)<br>
+                            • Redeem bonus codes (varies)<br>
+                            • Weekly activity bonus (+50 PTS)
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function loadShopPage() {
+            const shopPage = document.getElementById('shopPage');
+            
+            // Build cashout section
+            const cashoutSection = `
+                <div style="margin-top: 30px;">
+                    <div class="form-label">
+                        <i class="fa fa-credit-card"></i> CASHOUT OPTIONS
+                    </div>
+                    <div class="row" style="margin-bottom: 15px;">
+                        <div class="col-xs-12 col-md-4" style="margin-bottom: 15px;">
+                            <div class="shop-item" onclick="selectCashoutMethod('paypal')" id="cashoutPaypal" style="cursor: pointer; text-align: center;">
+                                <div style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;">
+                                    <i class="fa fa-paypal"></i>
+                                </div>
+                                <div style="font-weight: 600; color: var(--light-text); margin-bottom: 5px;">
+                                    PayPal
+                                </div>
+                                <div style="font-size: 11px; color: #AAAAAA;">
+                                    Minimum 100 PTS = $10
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xs-12 col-md-4" style="margin-bottom: 15px;">
+                            <div class="shop-item" onclick="selectCashoutMethod('amazon')" id="cashoutAmazon" style="cursor: pointer; text-align: center;">
+                                <div style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;">
+                                    <i class="fa fa-amazon"></i>
+                                </div>
+                                <div style="font-weight: 600; color: var(--light-text); margin-bottom: 5px;">
+                                    Amazon Gift Card
+                                </div>
+                                <div style="font-size: 11px; color: #AAAAAA;">
+                                    Minimum 50 PTS = $5
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xs-12 col-md-4" style="margin-bottom: 15px;">
+                            <div class="shop-item" onclick="selectCashoutMethod('bitcoin')" id="cashoutBitcoin" style="cursor: pointer; text-align: center;">
+                                <div style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;">
+                                    <i class="fa fa-btc"></i>
+                                </div>
+                                <div style="font-weight: 600; color: var(--light-text); margin-bottom: 5px;">
+                                    Bitcoin
+                                </div>
+                                <div style="font-size: 11px; color: #AAAAAA;">
+                                    Minimum 200 PTS = $20
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-label">REQUEST CASHOUT</div>
+                    <div class="row">
+                        <div class="col-xs-12 col-sm-6">
+                            <input type="number" id="cashoutAmount" class="form-control-iml" placeholder="Amount (min 50 PTS)" min="50" step="1">
+                        </div>
+                        <div class="col-xs-12 col-sm-6">
+                            <input type="text" id="cashoutMethodInput" class="form-control-iml" placeholder="Select method above" readonly>
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <input type="text" id="cashoutDetails" class="form-control-iml" placeholder="PayPal email / Amazon account / Bitcoin address">
+                    </div>
+                    <button class="btn btn-iml" onclick="handleCashout()" style="width: 100%; margin-top: 15px;">
+                        <i class="fa fa-check-circle"></i> REQUEST CASHOUT
+                    </button>
+                </div>
+            `;
 
-// ==== START APPLICATION ============================================
-// Make functions globally available
-window.handleLogin = handleLogin;
-window.submitAnswer = submitAnswer;
-window.logoutUser = logoutUser;
-window.handleRedeemBonus = handleRedeemBonus;
-window.handlePurchaseItem = handlePurchaseItem;
-window.selectCashoutMethod = selectCashoutMethod;
-window.handleCashout = handleCashout;
-window.sendSupportMessage = sendSupportMessage;
-window.sendChatMessageNow = sendChatMessageNow;
-window.navigateTo = navigateTo;
+            shopPage.innerHTML = `
+                <div class="panel panel-iml">
+                    <div class="panel-heading">
+                        <i class="fa fa-shopping-cart"></i> REWARDS SHOP
+                    </div>
+                    <div class="panel-body">
+                        <div class="text-center" style="margin-bottom: 25px;">
+                            <div class="stat-card" style="display: inline-block; min-width: 200px;">
+                                <div class="stat-label">YOUR BALANCE</div>
+                                <div class="stat-value user-points" style="color: var(--secondary-color); font-size: 24px;">
+                                    ${formatCurrency(appState.userPoints || 0)} PTS
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-label">AVAILABLE REWARDS</div>
+                        <div id="shopItemsContainer" style="margin-bottom: 30px;">
+                            <!-- Shop items will be loaded here -->
+                        </div>
+                        
+                        ${appState.currentUser ? cashoutSection : '<div class="text-center" style="padding: 20px; color: #AAAAAA;">Please login to view cashout options</div>'}
+                    </div>
+                </div>
+            `;
 
-// Initialize app when DOM is loaded
-document.addEventListener('DOMContentLoaded', initializeApp);
-</script>
+            // Load shop items dynamically
+            loadAndDisplayShopItems();
+        }
+        
+        async function loadAndDisplayShopItems() {
+            const items = await loadShopItems();
+            const container = document.getElementById('shopItemsContainer');
+            
+            if (!container) return;
+            
+            if (items.length === 0) {
+                container.innerHTML = '<div class="text-center" style="color: #AAAAAA;">No items available</div>';
+                return;
+            }
+            
+            let itemsHtml = '<div class="row">';
+            items.forEach(item => {
+                const canAfford = appState.currentUser && appState.userPoints >= item.cost;
+                itemsHtml += `
+                    <div class="col-xs-12 col-sm-6 col-md-4" style="margin-bottom: 15px;">
+                        <div class="shop-item">
+                            <div class="shop-item-header">
+                                <div class="shop-item-name">${item.name}</div>
+                                <div class="shop-item-cost">${item.cost} PTS</div>
+                            </div>
+                            <div class="shop-item-desc">${item.description}</div>
+                            <button class="btn btn-iml purchase-btn" 
+                                    onclick="handlePurchaseItem(${item.id})" 
+                                    data-cost="${item.cost}"
+                                    ${!appState.currentUser || !canAfford ? 'disabled' : ''}
+                                    style="width: 100%;">
+                                <i class="fa fa-shopping-cart"></i> PURCHASE
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            itemsHtml += '</div>';
+            
+            container.innerHTML = itemsHtml;
+        }
+        
+        function selectCashoutMethod(method) {
+            // Reset all selections
+            const paypalDiv = document.getElementById('cashoutPaypal');
+            const amazonDiv = document.getElementById('cashoutAmazon');
+            const bitcoinDiv = document.getElementById('cashoutBitcoin');
+            
+            if (paypalDiv) paypalDiv.style.borderColor = '#333333';
+            if (amazonDiv) amazonDiv.style.borderColor = '#333333';
+            if (bitcoinDiv) bitcoinDiv.style.borderColor = '#333333';
+            
+            // Highlight selected
+            const selectedDiv = document.getElementById(`cashout${method.charAt(0).toUpperCase() + method.slice(1)}`);
+            if (selectedDiv) {
+                selectedDiv.style.borderColor = 'var(--secondary-color)';
+            }
+            
+            // Update input
+            const methodInput = document.getElementById('cashoutMethodInput');
+            if (methodInput) {
+                methodInput.value = method.toUpperCase();
+            }
+        }
+        
+        async function handleCashout() {
+            const amountInput = document.getElementById('cashoutAmount');
+            const methodInput = document.getElementById('cashoutMethodInput');
+            const detailsInput = document.getElementById('cashoutDetails');
+            
+            if (!amountInput || !methodInput || !detailsInput) {
+                showMessage('Cashout form not loaded properly', 'error');
+                return;
+            }
+            
+            const amount = amountInput.value;
+            const method = methodInput.value;
+            const details = detailsInput.value;
+            
+            if (!amount || amount < 50) {
+                showMessage('Minimum cashout is 50 PTS', 'warning');
+                return;
+            }
+            
+            if (!method) {
+                showMessage('Please select a cashout method', 'warning');
+                return;
+            }
+            
+            if (!details) {
+                showMessage('Please enter payment details', 'warning');
+                return;
+            }
+            
+            if (appState.userPoints < amount) {
+                showMessage('Insufficient points', 'error');
+                return;
+            }
+            
+            const confirmCashout = confirm(`Request cashout of ${amount} PTS via ${method}?\n\nDetails: ${details}`);
+            if (!confirmCashout) return;
+            
+            const success = await requestCashout(amount, method, details);
+            if (success) {
+                amountInput.value = '';
+                methodInput.value = '';
+                detailsInput.value = '';
+                selectCashoutMethod('');
+            }
+        }
+        
+        async function loadLeadersPage() {
+            const leadersPage = document.getElementById('leadersPage');
+            const leaderboard = await loadLeaderboard();
+            
+            let leaderboardHtml = '';
+            leaderboard.forEach(leader => {
+                leaderboardHtml += `
+                    <div class="leaderboard-row">
+                        <div class="leaderboard-rank">${leader.rank}</div>
+                        <div class="leaderboard-medal">
+                            ${leader.rank === 1 ? '<i class="fa fa-trophy" style="color: #FFD700;"></i>' : 
+                              leader.rank === 2 ? '<i class="fa fa-trophy" style="color: #C0C0C0;"></i>' : 
+                              leader.rank === 3 ? '<i class="fa fa-trophy" style="color: #CD7F32;"></i>' : 
+                              '<i class="fa fa-user"></i>'}
+                        </div>
+                        <div class="leaderboard-user">
+                            <div class="leaderboard-username">${leader.username}</div>
+                            <div class="leaderboard-level">${leader.level}</div>
+                        </div>
+                        <div class="leaderboard-points">${leader.pts} PTS</div>
+                    </div>
+                `;
+            });
+            
+            leadersPage.innerHTML = `
+                <div class="panel panel-iml">
+                    <div class="panel-heading">
+                        <i class="fa fa-trophy"></i> LEADERBOARD
+                    </div>
+                    <div class="panel-body">
+                        <div style="margin-bottom: 20px;">
+                            <div class="btn-group btn-group-justified">
+                                <button class="btn btn-iml active" style="border-radius: 4px 0 0 4px;">DAILY</button>
+                                <button class="btn btn-iml" style="border-radius: 0;">WEEKLY</button>
+                                <button class="btn btn-iml" style="border-radius: 0;">MONTHLY</button>
+                                <button class="btn btn-iml" style="border-radius: 0 4px 4px 0;">ALL TIME</button>
+                            </div>
+                        </div>
+                        
+                        ${leaderboardHtml}
+                        
+                        ${appState.currentUser ? `
+                            <div style="margin-top: 25px;">
+                                <div class="stat-card">
+                                    <div class="stat-label">YOUR POSITION</div>
+                                    <div class="stat-value" style="color: var(--secondary-color);">#${leaderboard.findIndex(l => l.username === appState.currentUser.username) + 1 || 'N/A'}</div>
+                                    <div class="stat-sub">${formatCurrency(appState.userPoints)} PTS</div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function loadHelpPage() {
+            const helpPage = document.getElementById('helpPage');
+            helpPage.innerHTML = `
+                <div class="panel panel-iml">
+                    <div class="panel-heading">
+                        <i class="fa fa-question-circle"></i> HELP & SUPPORT
+                    </div>
+                    <div class="panel-body">
+                        <div class="question-card">
+                            <div class="question-number">HOW DO I EARN POINTS?</div>
+                            <div class="question-text">
+                                • Answer questions correctly: +5 PTS each<br>
+                                • Daily login bonus: +5 PTS daily<br>
+                                • Complete profile: +10 PTS<br>
+                                • Refer friends: +25 PTS each<br>
+                                • Redeem bonus codes: Varies (10-100 PTS)<br>
+                                • Weekly streak: +50 PTS for 7 consecutive days
+                            </div>
+                        </div>
+                        
+                        <div class="question-card">
+                            <div class="question-number">HOW DO I CASHOUT?</div>
+                            <div class="question-text">
+                                1. Go to Shop page<br>
+                                2. Select cashout method (PayPal, Amazon, Bitcoin)<br>
+                                3. Enter amount (minimum 50 PTS)<br>
+                                4. Provide payment details<br>
+                                5. Submit request<br><br>
+                                Cashouts are processed within 3-5 business days.
+                            </div>
+                        </div>
+                        
+                        <div class="question-card">
+                            <div class="question-number">WHAT IS THE REVERSAL RATE?</div>
+                            <div class="question-text">
+                                The reversal rate is a quality control metric. Lower is better.<br>
+                                • Correct answers decrease reversal by 0.1<br>
+                                • Incorrect answers increase reversal by 0.2<br>
+                                • If reversal exceeds 3%, some points may be held for 15 days
+                            </div>
+                        </div>
+                        
+                        <div class="question-card">
+                            <div class="question-number">WHERE IS MY DATA STORED?</div>
+                            <div class="question-text">
+                                All data is stored securely in Google Sheets. Your progress syncs instantly with Google's servers. We never store passwords in plain text.
+                            </div>
+                        </div>
+                        
+                        <div class="question-card">
+                            <div class="question-number">HOW DO I CONTACT SUPPORT?</div>
+                            <div class="question-text">
+                                • Use the Live Chat feature (available 9AM-5PM GMT)<br>
+                                • Email: support@imlconsole.com<br>
+                                • Response time: 24-48 hours<br><br>
+                                For urgent issues, please use the chat feature.
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 30px;">
+                            <div class="form-label">CONTACT SUPPORT</div>
+                            <input type="text" id="supportSubject" class="form-control-iml" placeholder="Subject">
+                            <textarea id="supportMessage" class="form-control-iml" placeholder="Your message..." rows="4" style="margin-top: 10px;"></textarea>
+                            <button class="btn btn-iml" onclick="sendSupportMessage()" style="width: 100%; margin-top: 15px;">
+                                <i class="fa fa-paper-plane"></i> SEND MESSAGE
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function loadChatPage() {
+            const chatPage = document.getElementById('chatPage');
+            await loadChatMessages();
+            
+            let messagesHtml = '';
+            appState.chatMessages.forEach(msg => {
+                const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const senderClass = msg.sender === 'User' ? 'user' : 'support';
+                messagesHtml += `
+                    <div class="chat-message ${senderClass}">
+                        <div class="chat-sender ${senderClass}">
+                            ${msg.sender} • ${time}
+                        </div>
+                        <div class="chat-text">
+                            ${msg.message}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            chatPage.innerHTML = `
+                <div class="panel panel-iml">
+                    <div class="panel-heading">
+                        <i class="fa fa-comments"></i> LIVE CHAT
+                    </div>
+                    <div class="panel-body">
+                        <div class="chat-container" id="chatMessagesContainer">
+                            ${messagesHtml}
+                        </div>
+                        
+                        <div style="margin-top: 15px;">
+                            <div class="input-group">
+                                <input type="text" id="chatMessageInput" class="form-control-iml" placeholder="Type your message..." ${!appState.currentUser ? 'disabled' : ''}>
+                                <span class="input-group-btn">
+                                    <button class="btn btn-iml" onclick="sendChatMessageNow()" ${!appState.currentUser ? 'disabled' : ''}>
+                                        <i class="fa fa-paper-plane"></i>
+                                    </button>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 25px; padding: 15px; background-color: rgba(0, 255, 224, 0.1); border-radius: 6px; border: 1px solid var(--primary-color);">
+                            <strong>CHAT INFORMATION:</strong><br>
+                            • Support available: 9 AM - 5 PM (GMT)<br>
+                            • Typical response time: 5-10 minutes<br>
+                            • Chat history saved for 7 days<br>
+                            • For urgent issues: support@imlconsole.com
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Scroll to bottom of chat
+            const container = document.getElementById('chatMessagesContainer');
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+        
+        // ==== EVENT HANDLERS ===============================================
+        function handleLogin() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            
+            if (!username || !password) {
+                showMessage('Please enter username and password', 'warning');
+                return;
+            }
+            
+            loginUser(username, password);
+        }
+        
+        async function handleRedeemBonus() {
+            const codeInput = document.getElementById('bonusCodeInput');
+            if (!codeInput) return;
+            
+            const code = codeInput.value.trim();
+            if (!code) {
+                showMessage('Please enter a bonus code', 'warning');
+                return;
+            }
+            
+            const success = await redeemBonusCode(code);
+            if (success) {
+                codeInput.value = '';
+            }
+        }
+        
+        async function handlePurchaseItem(itemId) {
+            if (!appState.currentUser) {
+                showMessage('Please login first', 'error');
+                return;
+            }
+            
+            const confirmPurchase = confirm('Are you sure you want to purchase this item?');
+            if (!confirmPurchase) return;
+            
+            const code = await purchaseItem(itemId);
+            if (code) {
+                showMessage(`Purchase successful! Your code: ${code}`, 'success');
+                loadAndDisplayShopItems();
+            }
+        }
+        
+        function sendSupportMessage() {
+            const subject = document.getElementById('supportSubject');
+            const message = document.getElementById('supportMessage');
+            
+            if (!subject || !message) return;
+            
+            const subjectValue = subject.value.trim();
+            const messageValue = message.value.trim();
+            
+            if (!subjectValue || !messageValue) {
+                showMessage('Please fill in both fields', 'warning');
+                return;
+            }
+            
+            // In a real app, you would send this to your backend
+            showMessage('Message sent to support. We will respond within 24 hours.', 'success');
+            subject.value = '';
+            message.value = '';
+        }
+        
+        function sendChatMessageNow() {
+            const input = document.getElementById('chatMessageInput');
+            if (!input) return;
+            
+            const message = input.value.trim();
+            if (!message) return;
+            
+            if (!appState.currentUser) {
+                showMessage('Please login to use chat', 'error');
+                return;
+            }
+            
+            // Add message to UI immediately
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const messagesContainer = document.getElementById('chatMessagesContainer');
+            
+            if (messagesContainer) {
+                messagesContainer.innerHTML += `
+                    <div class="chat-message user">
+                        <div class="chat-sender user">
+                            You • ${time}
+                        </div>
+                        <div class="chat-text">
+                            ${message}
+                        </div>
+                    </div>
+                `;
+                
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            // Clear input
+            input.value = '';
+            
+            // Send to server
+            sendChatMessage(message);
+            
+            // Load updated messages after a delay
+            setTimeout(() => {
+                loadChatMessages();
+            }, 1000);
+        }
+        
+        function logoutUser() {
+            appState.currentUser = null;
+            appState.userPoints = 0;
+            appState.userReversal = 0;
+            
+            localStorage.removeItem('iml_sessionId');
+            localStorage.removeItem('iml_username');
+            
+            showMessage('Logged out successfully', 'success');
+            loadHomePage();
+        }
+        
+        // ==== PAGE NAVIGATION ==============================================
+        function navigateTo(page) {
+            // Update active state in desktop nav
+            document.querySelectorAll('.navbar-nav li').forEach(li => {
+                li.classList.remove('active');
+                if (li.dataset.page === page) {
+                    li.classList.add('active');
+                }
+            });
+            
+            // Update active state in mobile nav
+            document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.page === page) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Hide all pages
+            document.querySelectorAll('.page-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Show selected page
+            document.getElementById(`${page}Page`).classList.add('active');
+            
+            // Load page content
+            appState.currentPage = page;
+            
+            switch(page) {
+                case 'home':
+                    loadHomePage();
+                    break;
+                case 'earn':
+                    loadEarnPage();
+                    break;
+                case 'shop':
+                    loadShopPage();
+                    break;
+                case 'leaders':
+                    loadLeadersPage();
+                    break;
+                case 'help':
+                    loadHelpPage();
+                    break;
+                case 'chat':
+                    loadChatPage();
+                    break;
+            }
+        }
+        
+        // ==== INITIALIZATION ===============================================
+        async function initializeApp() {
+            // Check for existing session
+            const savedUsername = localStorage.getItem('iml_username');
+            const savedSessionId = localStorage.getItem('iml_sessionId');
+            
+            if (savedUsername && savedSessionId) {
+                showLoading('Restoring session...');
+                
+                // Try to login with saved credentials
+                const result = await apiCall('login', {
+                    username: savedUsername,
+                    password: 'password123' // Note: In production, you shouldn't store passwords
+                });
+                
+                if (result) {
+                    appState.currentUser = result.user;
+                    appState.userPoints = result.user.pts;
+                    appState.userReversal = result.user.reversal;
+                    showMessage('Welcome back!', 'success');
+                } else {
+                    localStorage.removeItem('iml_username');
+                    localStorage.removeItem('iml_sessionId');
+                }
+            }
+            
+            // Set up navigation event listeners
+            document.querySelectorAll('.navbar-nav li a').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const page = this.parentElement.dataset.page;
+                    navigateTo(page);
+                });
+            });
+            
+            document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const page = this.dataset.page;
+                    navigateTo(page);
+                });
+            });
+            
+            // Set up Enter key for login
+            document.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (appState.currentPage === 'home' && !appState.currentUser) {
+                        const usernameInput = document.getElementById('loginUsername');
+                        const passwordInput = document.getElementById('loginPassword');
+                        if (usernameInput && document.activeElement === usernameInput) {
+                            passwordInput.focus();
+                        } else if (passwordInput && document.activeElement === passwordInput) {
+                            handleLogin();
+                        }
+                    }
+                    
+                    // Enter key for chat
+                    if (appState.currentPage === 'chat') {
+                        const chatInput = document.getElementById('chatMessageInput');
+                        if (chatInput && document.activeElement === chatInput) {
+                            sendChatMessageNow();
+                        }
+                    }
+                    
+                    // Enter key for answers
+                    if (appState.currentPage === 'home' && appState.currentUser) {
+                        for (let i = 1; i <= 3; i++) {
+                            const answerInput = document.getElementById(`answerInput${i}`);
+                            if (answerInput && document.activeElement === answerInput) {
+                                submitAnswer(i.toString(), answerInput.value);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Enter key for bonus code
+                    if (appState.currentPage === 'earn') {
+                        const bonusInput = document.getElementById('bonusCodeInput');
+                        if (bonusInput && document.activeElement === bonusInput) {
+                            handleRedeemBonus();
+                        }
+                    }
+                }
+            });
+            
+            // Load initial page
+            navigateTo('home');
+            
+            // Test API connection
+            const testResult = await apiCall('test');
+            if (testResult) {
+                console.log('API Connected:', testResult);
+            }
+        }
+        
+        // ==== START APPLICATION ============================================
+        // Make functions globally available
+        window.handleLogin = handleLogin;
+        window.submitAnswer = submitAnswer;
+        window.logoutUser = logoutUser;
+        window.handleRedeemBonus = handleRedeemBonus;
+        window.handlePurchaseItem = handlePurchaseItem;
+        window.selectCashoutMethod = selectCashoutMethod;
+        window.handleCashout = handleCashout;
+        window.sendSupportMessage = sendSupportMessage;
+        window.sendChatMessageNow = sendChatMessageNow;
+        window.navigateTo = navigateTo;
+        
+        // Initialize app when DOM is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
+    </script>
 </body>
 </html>
