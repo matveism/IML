@@ -1,6 +1,6 @@
 // ==== CONFIG ==========================================================
 // Google Apps Script Web App URL
-var API_BASE_URL = "https://script.google.com/macros/s/AKfycbxWE8QgOCifiQzjWJLAaX4Vz-BPYIKEuHDNnY7fAQgVTM-c0gMVlygSeG1V50IRS1eeLA/exec";
+var API_BASE_URL = "https://script.google.com/macros/s/AKfycbw3SvXr2ZRzrc0DXRJr5D8jptEKqG97Q8e5WsbfEG2fxz_ZKGwpo2aNEEM0DKsMc1bghQ/exec";
 
 var BASE_RATE = 10;
 var POINTS_PER_CORRECT = 5;
