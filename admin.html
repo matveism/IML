@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Quiz Admin Panel</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+.container { max-width: 1200px; margin: 0 auto; }
+.header { background: #4a6fa5; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+.tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+.tab { padding: 10px 20px; background: #ddd; border: none; cursor: pointer; border-radius: 4px; }
+.tab.active { background: #4a6fa5; color: white; }
+.content { display: none; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.content.active { display: block; }
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: bold; }
+input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+button { padding: 10px 20px; background: #4a6fa5; color: white; border: none; border-radius: 4px; cursor: pointer; }
+button:hover { background: #3a5a85; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+th { background: #f5f5f5; }
+.actions { display: flex; gap: 5px; }
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+<h1>Quiz System Admin Panel</h1>
+</div>
+
+<div class="tabs">
+<button class="tab active" onclick="openTab('users')">Manage Users</button>
+<button class="tab" onclick="openTab('quizzes')">Manage Quizzes</button>
+<button class="tab" onclick="openTab('attempts')">View Attempts</button>
+</div>
+
+<div id="users" class="content active">
+<h2>Create New User</h2>
+<form id="userForm">
+<div class="form-group">
+<label>UserID</label>
+<input type="text" id="newUserId" required>
+</div>
+<div class="form-group">
+<label>PassID</label>
+<input type="text" id="newPassId" required>
+</div>
+<div class="form-group">
+<label>Quiz Access ID</label>
+<input type="text" id="newQuizAccessId">
+</div>
+<div class="form-group">
+<label>Initial Balance</label>
+<input type="number" id="newBalance" value="0">
+</div>
+<button type="submit">Create User</button>
+</form>
+
+<h2>All Users</h2>
+<table id="usersTable">
+<thead><tr><th>UserID</th><th>Balance</th><th>Reversal</th><th>Actions</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div id="quizzes" class="content">
+<h2>Create New Quiz</h2>
+<form id="quizForm">
+<input type="hidden" id="editQuizId">
+<div class="form-group">
+<label>Quiz Access ID</label>
+<input type="text" id="quizAccessId" required>
+</div>
+<div class="form-group">
+<label>Question 1</label>
+<input type="text" id="quizQ1" required>
+</div>
+<div class="form-group">
+<label>Answer 1</label>
+<input type="text" id="quizA1" required>
+</div>
+<div class="form-group">
+<label>Question 2</label>
+<input type="text" id="quizQ2" required>
+</div>
+<div class="form-group">
+<label>Answer 2</label>
+<input type="text" id="quizA2" required>
+</div>
+<div class="form-group">
+<label>Question 3</label>
+<input type="text" id="quizQ3" required>
+</div>
+<div class="form-group">
+<label>Answer 3</label>
+<input type="text" id="quizA3" required>
+</div>
+<div class="form-group">
+<label>Reward Amount</label>
+<input type="number" id="quizRewardAmount" required>
+</div>
+<div class="form-group">
+<label>Reward Name</label>
+<input type="text" id="quizRewardName">
+</div>
+<div class="form-group">
+<label>Reward Amount (Redemption)</label>
+<input type="number" id="quizRedemptionAmount">
+</div>
+<button type="submit">Save Quiz</button>
+<button type="button" onclick="clearQuizForm()">Clear</button>
+</form>
+
+<h2>All Quizzes</h2>
+<table id="quizzesTable">
+<thead><tr><th>Access ID</th><th>Questions</th><th>Reward</th><th>Actions</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div id="attempts" class="content">
+<h2>Quiz Attempts</h2>
+<table id="attemptsTable">
+<thead><tr><th>User</th><th>Quiz</th><th>Earned</th><th>Date</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ysujfwqzjwkfkighqxch.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Sd3Q_OGucwV9nWgYIJ8kEg_B5txT-Lf';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function openTab(tabName) {
+document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+document.getElementById(tabName).classList.add('active');
+event.target.classList.add('active');
+if(tabName === 'users') loadUsers();
+if(tabName === 'quizzes') loadQuizzes();
+if(tabName === 'attempts') loadAttempts();
+}
+
+async function loadUsers() {
+const { data, error } = await supabase.from('users').select('*');
+if(error) return console.error(error);
+const tbody = document.querySelector('#usersTable tbody');
+tbody.innerHTML = '';
+data.forEach(user => {
+tbody.innerHTML += `
+<tr>
+<td>${user.UserID}</td>
+<td>${user.Balance || 0}</td>
+<td>${user.Reversal || 0}</td>
+<td class="actions">
+<button onclick="editUser('${user.UserID}')">Edit</button>
+<button onclick="deleteUser('${user.UserID}')">Delete</button>
+</td>
+</tr>`;
+});
+}
+
+async function editUser(userId) {
+const { data, error } = await supabase
+.from('users')
+.select('*')
+.eq('UserID', userId)
+.single();
+if(error) return alert('Error: ' + error.message);
+document.getElementById('newUserId').value = data.UserID;
+document.getElementById('newPassId').value = data.PassID;
+document.getElementById('newQuizAccessId').value = data['Quiz Access ID'] || '';
+document.getElementById('newBalance').value = data.Balance || 0;
+}
+
+async function deleteUser(userId) {
+if(!confirm('Delete user ' + userId + '?')) return;
+const { error } = await supabase.from('users').delete().eq('UserID', userId);
+if(error) return alert('Error: ' + error.message);
+loadUsers();
+}
+
+document.getElementById('userForm').onsubmit = async (e) => {
+e.preventDefault();
+const userData = {
+'UserID': document.getElementById('newUserId').value,
+'PassID': document.getElementById('newPassId').value,
+'Quiz Access ID': document.getElementById('newQuizAccessId').value,
+'Balance': parseFloat(document.getElementById('newBalance').value) || 0,
+'Reversal': 0
+};
+const { error } = await supabase.from('users').upsert(userData);
+if(error) return alert('Error: ' + error.message);
+alert('User saved!');
+loadUsers();
+e.target.reset();
+};
+
+async function loadQuizzes() {
+const { data, error } = await supabase.from('quizzes').select('*');
+if(error) return console.error(error);
+const tbody = document.querySelector('#quizzesTable tbody');
+tbody.innerHTML = '';
+data.forEach(quiz => {
+tbody.innerHTML += `
+<tr>
+<td>${quiz['Quiz Access ID']}</td>
+<td>${quiz.Q1.substring(0, 30)}...</td>
+<td>${quiz['Reward Amount']}</td>
+<td class="actions">
+<button onclick="editQuiz('${quiz.id}')">Edit</button>
+<button onclick="deleteQuiz('${quiz.id}')">Delete</button>
+</td>
+</tr>`;
+});
+}
+
+async function editQuiz(id) {
+const { data, error } = await supabase
+.from('quizzes')
+.select('*')
+.eq('id', id)
+.single();
+if(error) return alert('Error: ' + error.message);
+document.getElementById('editQuizId').value = data.id;
+document.getElementById('quizAccessId').value = data['Quiz Access ID'];
+document.getElementById('quizQ1').value = data.Q1;
+document.getElementById('quizA1').value = data.A1;
+document.getElementById('quizQ2').value = data.Q2;
+document.getElementById('quizA2').value = data.A2;
+document.getElementById('quizQ3').value = data.Q3;
+document.getElementById('quizA3').value = data.A3;
+document.getElementById('quizRewardAmount').value = data['Reward Amount'];
+document.getElementById('quizRewardName').value = data.RewardName || '';
+document.getElementById('quizRedemptionAmount').value = data.RewardAmount || 0;
+}
+
+async function deleteQuiz(id) {
+if(!confirm('Delete this quiz?')) return;
+const { error } = await supabase.from('quizzes').delete().eq('id', id);
+if(error) return alert('Error: ' + error.message);
+loadQuizzes();
+}
+
+document.getElementById('quizForm').onsubmit = async (e) => {
+e.preventDefault();
+const quizId = document.getElementById('editQuizId').value;
+const quizData = {
+'Quiz Access ID': document.getElementById('quizAccessId').value,
+'Q1': document.getElementById('quizQ1').value,
+'A1': document.getElementById('quizA1').value,
+'Q2': document.getElementById('quizQ2').value,
+'A2': document.getElementById('quizA2').value,
+'Q3': document.getElementById('quizQ3').value,
+'A3': document.getElementById('quizA3').value,
+'Reward Amount': parseFloat(document.getElementById('quizRewardAmount').value),
+'RewardName': document.getElementById('quizRewardName').value,
+'RewardAmount': parseFloat(document.getElementById('quizRedemptionAmount').value) || 0,
+'is_active': true
+};
+let error;
+if(quizId) {
+({ error } = await supabase.from('quizzes').update(quizData).eq('id', quizId));
+} else {
+({ error } = await supabase.from('quizzes').insert(quizData));
+}
+if(error) return alert('Error: ' + error.message);
+alert('Quiz saved!');
+loadQuizzes();
+clearQuizForm();
+};
+
+function clearQuizForm() {
+document.getElementById('editQuizId').value = '';
+document.getElementById('quizForm').reset();
+}
+
+async function loadAttempts() {
+const { data, error } = await supabase
+.from('quiz_attempts')
+.select(`
+*,
+users!inner(UserID)
+`)
+.order('created_at', { ascending: false });
+if(error) return console.error(error);
+const tbody = document.querySelector('#attemptsTable tbody');
+tbody.innerHTML = '';
+data.forEach(attempt => {
+tbody.innerHTML += `
+<tr>
+<td>${attempt.users?.UserID || 'Unknown'}</td>
+<td>${attempt.quiz_id}</td>
+<td>${attempt.earned_points}</td>
+<td>${new Date(attempt.created_at).toLocaleString()}</td>
+</tr>`;
+});
+}
+
+loadUsers();
+</script>
+</body>
+</html>
