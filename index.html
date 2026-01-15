@@ -2,512 +2,524 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>WinCE Quiz Dashboard</title>
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<title>WinCE Quiz Dashboard - Supabase</title>
+
 <style>
-:root{--xp-bg:#c0c0c0;--xp-dark:#808080;--xp-light:#f0f0f0;--xp-blue:#0a246a;--xp-accent:#0078d7;--xp-border:#404040;--xp-text:#000000;--danger:#b00020}
-*{box-sizing:border-box;font-family:"Tahoma","Segoe UI",sans-serif}
-body{margin:0;background:radial-gradient(circle at top left,#e0e0e0,#a0a0a0);color:var(--xp-text)}
-.app-shell{max-width:960px;margin:20px auto;border:2px solid var(--xp-border);background:var(--xp-bg);box-shadow:0 0 0 1px #fff inset,0 0 12px rgba(0,0,0,.4)}
-.title-bar{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to right,#0a246a,#3a6ea5);color:#fff;padding:4px 8px;font-size:12px}
-.title-left{display:flex;align-items:center;gap:6px}
-.logo-box{width:18px;height:18px;background:linear-gradient(135deg,#0ff,#f0f);border-radius:3px;border:1px solid #fff}
-.title-text{font-weight:bold}
-.title-right{display:flex;align-items:center;gap:8px;font-size:11px}
-.user-logo{width:20px;height:20px;border-radius:3px;border:1px solid #fff;background-size:cover;background-position:center;background-color:#444}
-.hamburger{display:none;width:20px;height:16px;flex-direction:column;justify-content:space-between;cursor:pointer}
-.hamburger span{display:block;height:3px;background:#fff;border-radius:2px}
-.window-body{padding:10px;background:linear-gradient(to bottom,#f4f4f4,#c0c0c0)}
-.top-status-bar{display:flex;justify-content:space-between;align-items:center;background:#d4d4d4;border:1px solid #fff;box-shadow:0 0 0 1px #808080 inset;padding:4px 8px;font-size:11px;margin-bottom:8px}
-.status-group{display:flex;align-items:center;gap:10px}
-.status-label{font-weight:bold}
-.pill{padding:2px 6px;border-radius:10px;border:1px solid #808080;background:#f8f8f8;min-width:60px;text-align:center}
-.pill-balance{background:linear-gradient(to bottom,#e8ffe8,#b0e0b0)}
-.pill-reversal{background:linear-gradient(to bottom,#ffe8e8,#e0b0b0)}
-.pill-logged{background:linear-gradient(to bottom,#e8f0ff,#b0c4e0)}
-.content-grid{display:grid;grid-template-columns:260px 1fr;gap:10px}
-.panel{border:1px solid #fff;box-shadow:0 0 0 1px #808080 inset;background:#dcdcdc;padding:8px;font-size:12px}
-.panel-title{font-weight:bold;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #b0b0b0}
-.field-group{margin-bottom:6px}
-.field-label{display:block;font-size:11px;margin-bottom:2px}
-input[type="text"],input[type="password"]{width:100%;padding:3px 4px;border:1px solid #808080;background:#fff;font-size:12px}
-button{padding:3px 10px;font-size:12px;border:1px solid #404040;background:linear-gradient(to bottom,#f8f8f8,#c0c0c0);cursor:pointer}
-button:active{background:linear-gradient(to bottom,#c0c0c0,#f8f8f8)}
-button[disabled]{opacity:.5;cursor:default}
-.btn-primary{background:linear-gradient(to bottom,#fff,#d0e4ff);border-color:#0a246a}
-.btn-danger{background:linear-gradient(to bottom,#ffe0e0,#ffb0b0);border-color:#800000}
-.mini-note{font-size:10px;color:#333}
-.quiz-questions{margin-top:6px}
-.quiz-question{margin-bottom:6px;padding:4px;border-radius:3px;background:#f4f4f4;border:1px solid #b0b0b0}
-.quiz-question span{font-weight:bold}
-.quiz-input{margin-top:3px}
-.info-line{font-size:11px;margin-top:4px}
-.reward-info-box{margin-top:6px;padding:4px;border-radius:3px;background:#fffbe8;border:1px solid #c0a000;font-size:11px}
-.footer-bar{margin-top:8px;font-size:10px;text-align:right;color:#333}
-.hidden{display:none!important}
-.toast{position:fixed;bottom:12px;left:12px;background:var(--danger);color:#fff;padding:8px 12px;border-radius:4px;font-size:11px;box-shadow:0 2px 6px rgba(0,0,0,.4);opacity:0;pointer-events:none;transform:translateY(10px);transition:opacity .2s ease,transform .2s ease;z-index:9999}
-.toast.show{opacity:1;pointer-events:auto;transform:translateY(0)}
-@media (max-width:720px){.app-shell{margin:5px}.content-grid{grid-template-columns:1fr}.hamburger{display:flex}.left-panel-collapsed .left-panel{display:none}.toast{left:50%;transform:translate(-50%,10px)}.toast.show{transform:translate(-50%,0)}}
+:root {
+    --xp-bg: #c0c0c0;
+    --xp-dark: #808080;
+    --xp-light: #f0f0f0;
+    --xp-blue: #0a246a;
+    --xp-accent: #0078d7;
+    --xp-border: #404040;
+    --xp-text: #000000;
+    --danger: #b00020;
+    --success: #006400;
+}
+
+* { box-sizing: border-box; font-family: Tahoma, "Segoe UI", sans-serif; }
+body { margin:0; background: radial-gradient(circle at top left, #e0e0e0, #a0a0a0); color: var(--xp-text); }
+
+.app-shell {
+    max-width: 960px;
+    margin: 20px auto;
+    border: 2px solid var(--xp-border);
+    background: var(--xp-bg);
+    box-shadow: 0 0 0 1px #fff inset, 0 0 12px rgba(0,0,0,.4);
+}
+
+.title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(to right, #0a246a, #3a6ea5);
+    color: #fff;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.title-left { display: flex; align-items: center; gap: 6px; }
+.logo-box { width: 18px; height: 18px; background: linear-gradient(135deg, #0ff, #f0f); border-radius: 3px; border: 1px solid #fff; }
+.title-text { font-weight: bold; }
+
+.title-right { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.user-logo { width: 20px; height: 20px; border-radius: 3px; border: 1px solid #fff; background: #444; }
+
+.window-body { padding: 10px; background: linear-gradient(to bottom, #f4f4f4, #c0c0c0); }
+
+.top-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #d4d4d4;
+    border: 1px solid #fff;
+    box-shadow: 0 0 0 1px #808080 inset;
+    padding: 4px 8px;
+    font-size: 11px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.status-group { display: flex; align-items: center; gap: 10px; }
+.status-label { font-weight: bold; }
+
+.pill {
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid #808080;
+    background: #f8f8f8;
+    min-width: 60px;
+    text-align: center;
+}
+
+.pill-balance    { background: linear-gradient(to bottom, #e8ffe8, #b0e0b0); }
+.pill-reversal   { background: linear-gradient(to bottom, #ffe8e8, #e0b0b0); }
+.pill-logged     { background: linear-gradient(to bottom, #e8f0ff, #b0c4e0); }
+.pill-connected  { background: linear-gradient(to bottom, #e8ffe8, #90ee90); color: #006400; }
+
+.content-grid { display: grid; grid-template-columns: 260px 1fr; gap: 10px; }
+
+.panel {
+    border: 1px solid #fff;
+    box-shadow: 0 0 0 1px #808080 inset;
+    background: #dcdcdc;
+    padding: 8px;
+    font-size: 12px;
+}
+
+.panel-title {
+    font-weight: bold;
+    margin-bottom: 6px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #b0b0b0;
+}
+
+.field-group { margin-bottom: 6px; }
+.field-label { display: block; font-size: 11px; margin-bottom: 2px; }
+
+input[type="text"], input[type="password"] {
+    width: 100%;
+    padding: 3px 4px;
+    border: 1px solid #808080;
+    background: #fff;
+    font-size: 12px;
+}
+
+button {
+    padding: 3px 10px;
+    font-size: 12px;
+    border: 1px solid #404040;
+    background: linear-gradient(to bottom, #f8f8f8, #c0c0c0);
+    cursor: pointer;
+}
+
+button:active { background: linear-gradient(to bottom, #c0c0c0, #f8f8f8); }
+button[disabled] { opacity: .5; cursor: default; }
+
+.btn-primary { background: linear-gradient(to bottom, #fff, #d0e4ff); border-color: #0a246a; }
+.btn-danger  { background: linear-gradient(to bottom, #ffe0e0, #ffb0b0); border-color: #800000; }
+
+.mini-note { font-size: 10px; color: #333; }
+.quiz-questions { margin-top: 6px; }
+.quiz-question {
+    margin-bottom: 6px;
+    padding: 4px;
+    border-radius: 3px;
+    background: #f4f4f4;
+    border: 1px solid #b0b0b0;
+}
+.quiz-question span { font-weight: bold; }
+
+.info-line { font-size: 11px; margin-top: 4px; }
+.reward-info-box {
+    margin-top: 6px;
+    padding: 4px;
+    border-radius: 3px;
+    background: #fffbe8;
+    border: 1px solid #c0a000;
+    font-size: 11px;
+}
+
+.footer-bar { margin-top: 8px; font-size: 10px; text-align: right; color: #333; }
+.hidden { display: none !important; }
+
+.toast {
+    position: fixed;
+    bottom: 12px;
+    left: 12px;
+    background: var(--xp-dark);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 0;
+    border: 1px solid #fff;
+    font-size: 11px;
+    box-shadow: 2px 2px 0 rgba(0,0,0,.5);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    transition: opacity .2s ease, transform .2s ease;
+    z-index: 9999;
+}
+.toast.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+@media (max-width: 720px) {
+    .app-shell { margin: 5px; }
+    .content-grid { grid-template-columns: 1fr; }
+    .toast { left: 50%; transform: translate(-50%,10px); }
+    .toast.show { transform: translate(-50%,0); }
+}
 </style>
 </head>
 <body>
-<div class="app-shell" id="appShell">
-<div class="title-bar">
-<div class="title-left">
-<div class="logo-box"></div>
-<div class="title-text">Quiz Rewards Console</div>
-</div>
-<div class="title-right">
-<div id="titleUser" class="mini-user">Guest</div>
-<div id="titleUserLogo" class="user-logo"></div>
-<div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
-</div>
-</div>
-<div class="window-body">
-<div class="top-status-bar">
-<div class="status-group">
-<span class="status-label">Session:</span>
-<span id="loginStatus" class="pill pill-logged">Logged out</span>
-<button id="logoutBtn" class="btn-danger" style="display:none">Logout</button>
-</div>
-<div class="status-group">
-<span class="status-label">Balance:</span>
-<span id="balancePill" class="pill pill-balance">0.0 pts</span>
-<span class="status-label">Reversal:</span>
-<span id="reversalPill" class="pill pill-reversal">0.0 %</span>
-</div>
-</div>
-<div class="content-grid">
-<div class="panel left-panel">
-<div class="panel-title">Logo | LOGIN | Quiz Access</div>
-<div id="loginPanel">
-<div class="field-group">
-<label class="field-label" for="userIdInput">UserID</label>
-<input type="text" id="userIdInput" placeholder="matvei">
-</div>
-<div class="field-group">
-<label class="field-label" for="passIdInput">PassID</label>
-<input type="password" id="passIdInput" placeholder="matvei">
-</div>
-<button id="loginBtn" class="btn-primary">Login</button>
-<div class="mini-note">Enter your UserID and PassID</div>
-</div>
-<div id="quizIdPanel" class="hidden">
-<div class="field-group" style="margin-top:8px">
-<label class="field-label" for="quizIdInput">Quiz Access ID</label>
-<input type="text" id="quizIdInput" placeholder="matvei01">
-</div>
-<button id="loadQuizBtn" class="btn-primary">Load Quiz</button>
-<div class="mini-note">Enter Quiz Access ID to load your quiz</div>
-</div>
-</div>
-<div class="panel">
-<div class="panel-title">Mini Dashboard | Quiz | Reward</div>
-<div id="quizPanel" class="hidden">
-<div id="quizMeta" class="info-line"></div>
-<div class="quiz-questions" id="quizQuestions"></div>
-<button id="submitQuizBtn" class="btn-primary" disabled>Submit Answers</button>
-<div id="quizResult" class="info-line"></div>
-</div>
-<div id="rewardPanel" class="hidden">
-<div class="info-line">
-<strong>Reward:</strong> <span id="rewardNameLabel"></span> | 
-<strong>Reward Amount:</strong> <span id="rewardAmountLabel"></span>
-</div>
-<button id="redeemBtn" class="btn-primary">Redeem Reward</button>
-<div id="rewardInfoBox" class="reward-info-box hidden"></div>
-</div>
-</div>
-</div>
-<div class="footer-bar">Reversal % = (1 − (Earned / Total)) × 100 &nbsp;|&nbsp; 1/3 of 250 = 83.3 pts</div>
-</div>
-</div>
-<div id="toast" class="toast"></div>
-<script>
-// Initialize Supabase
-const SUPABASE_URL = 'https://ysujfwqzjwkfkighqxch.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_Sd3Q_OGucwV9nWgYIJ8kEg_B5txT-Lf';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// State
-let currentUser = null;
-let currentRow = null;
-let currentBalance = 0;
-let currentReversal = 0;
-let earnedThisQuiz = 0;
-let currentQuizId = null;
+<div class="app-shell">
+    <div class="title-bar">
+        <div class="title-left">
+            <div class="logo-box"></div>
+            <div class="title-text">Quiz Rewards Console - Supabase</div>
+        </div>
+        <div class="title-right">
+            <div id="titleUser">Guest</div>
+            <div id="titleUserLogo" class="user-logo"></div>
+        </div>
+    </div>
 
-// DOM Elements
-const appShell = document.getElementById("appShell");
-const hamburger = document.getElementById("hamburger");
-const loginPanel = document.getElementById("loginPanel");
-const quizIdPanel = document.getElementById("quizIdPanel");
-const quizPanel = document.getElementById("quizPanel");
-const rewardPanel = document.getElementById("rewardPanel");
-const loginBtn = document.getElementById("loginBtn");
-const logoutBtn = document.getElementById("logoutBtn");
-const loadQuizBtn = document.getElementById("loadQuizBtn");
-const submitQuizBtn = document.getElementById("submitQuizBtn");
-const redeemBtn = document.getElementById("redeemBtn");
-const loginStatus = document.getElementById("loginStatus");
-const balancePill = document.getElementById("balancePill");
-const reversalPill = document.getElementById("reversalPill");
-const titleUser = document.getElementById("titleUser");
-const titleUserLogo = document.getElementById("titleUserLogo");
-const quizMeta = document.getElementById("quizMeta");
-const quizQuestions = document.getElementById("quizQuestions");
-const quizResult = document.getElementById("quizResult");
-const rewardNameLabel = document.getElementById("rewardNameLabel");
-const rewardAmountLabel = document.getElementById("rewardAmountLabel");
-const rewardInfoBox = document.getElementById("rewardInfoBox");
-const toastEl = document.getElementById("toast");
-
-// Toast Function
-function showToast(message) {
-    toastEl.textContent = message;
-    toastEl.classList.add("show");
-    setTimeout(() => {
-        toastEl.classList.remove("show");
-    }, 2500);
-}
-
-// Set Logged In State
-function setLoggedIn(user, userLogo) {
-    currentUser = user;
-    loginStatus.textContent = "Logged in";
-    loginStatus.classList.add("pill-logged");
-    titleUser.textContent = user.username || user.userid;
-    if (userLogo && userLogo !== "#") {
-        titleUserLogo.style.backgroundImage = `url('${userLogo}')`;
-        titleUserLogo.style.backgroundColor = "";
-    } else {
-        titleUserLogo.style.backgroundImage = "none";
-        titleUserLogo.style.backgroundColor = "#444";
-    }
-    loginPanel.classList.add("hidden");
-    quizIdPanel.classList.remove("hidden");
-    logoutBtn.style.display = "inline-block";
-    
-    // Set balance from user data
-    currentBalance = user.balance || 0;
-    currentReversal = user.reversal || 0;
-    updateBalanceDisplay();
-}
-
-// Set Logged Out State
-function setLoggedOut() {
-    currentUser = null;
-    currentRow = null;
-    currentQuizId = null;
-    currentBalance = 0;
-    currentReversal = 0;
-    earnedThisQuiz = 0;
-    loginStatus.textContent = "Logged out";
-    titleUser.textContent = "Guest";
-    titleUserLogo.style.backgroundImage = "none";
-    titleUserLogo.style.backgroundColor = "#444";
-    loginPanel.classList.remove("hidden");
-    quizIdPanel.classList.add("hidden");
-    quizPanel.classList.add("hidden");
-    rewardPanel.classList.add("hidden");
-    logoutBtn.style.display = "none";
-    quizQuestions.innerHTML = "";
-    quizResult.textContent = "";
-    rewardInfoBox.classList.add("hidden");
-    rewardInfoBox.textContent = "";
-    document.getElementById("userIdInput").value = "";
-    document.getElementById("passIdInput").value = "";
-    document.getElementById("quizIdInput").value = "";
-    updateBalanceDisplay();
-}
-
-// Update Balance Display
-function updateBalanceDisplay() {
-    balancePill.textContent = currentBalance.toFixed(1) + " pts";
-    reversalPill.textContent = currentReversal.toFixed(1) + " %";
-}
-
-// Update Balance and Reversal
-function updateBalanceUI(earned, total) {
-    currentBalance += earned;
-    const reversal = total > 0 ? (1 - earned / total) * 100 : 0;
-    currentReversal = reversal;
-    updateBalanceDisplay();
-}
-
-// Fetch User from Supabase
-async function fetchUser(userId, passId) {
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('UserID', userId)
-            .eq('PassID', passId)
-            .single();
-        
-        if (error || !data) {
-            showToast("UserID / PassID not found.");
-            return null;
-        }
-        return data;
-    } catch (error) {
-        console.error("Error fetching user:", error);
-        showToast("Error connecting to database.");
-        return null;
-    }
-}
-
-// Fetch Quiz from Supabase
-async function fetchQuiz(quizId) {
-    try {
-        const { data, error } = await supabase
-            .from('quizzes')
-            .select('*')
-            .eq('Quiz Access ID', quizId)
-            .single();
-        
-        if (error || !data) {
-            showToast("Quiz Access ID not found.");
-            return null;
-        }
-        return data;
-    } catch (error) {
-        console.error("Error fetching quiz:", error);
-        showToast("Error loading quiz.");
-        return null;
-    }
-}
-
-// Build Quiz UI
-function buildQuizUI(quizData) {
-    quizQuestions.innerHTML = "";
-    quizResult.textContent = "";
-    submitQuizBtn.disabled = false;
-    
-    currentRow = {
-        q1: quizData.Q1,
-        q2: quizData.Q2,
-        q3: quizData.Q3,
-        a1: quizData.A1,
-        a2: quizData.A2,
-        a3: quizData.A3,
-        rewardAmount: parseFloat(quizData['Reward Amount'] || "0"),
-        rewardName: quizData.RewardName || "",
-        rewardAmount2: parseFloat(quizData.RewardAmount || "0"),
-        rewardInfo: quizData.RewardINFO || "",
-        userLogo: quizData.UserLogo || ""
-    };
-    
-    // Update UI with quiz data
-    if (currentRow.userLogo && currentRow.userLogo !== "#") {
-        titleUserLogo.style.backgroundImage = `url('${currentRow.userLogo}')`;
-        titleUserLogo.style.backgroundColor = "";
-    }
-    
-    quizMeta.textContent = `Reward: ${currentRow.rewardName} | Total Reward Amount: ${currentRow.rewardAmount}`;
-    
-    // Create quiz questions
-    const questions = [
-        { label: "Q1", text: currentRow.q1, id: "userQ1" },
-        { label: "Q2", text: currentRow.q2, id: "userQ2" },
-        { label: "Q3", text: currentRow.q3, id: "userQ3" }
-    ];
-    
-    questions.forEach(q => {
-        const div = document.createElement("div");
-        div.className = "quiz-question";
-        div.innerHTML = `
-            <div><span>${q.label}:</span> ${q.text}</div>
-            <div class="quiz-input">
-                <input type="text" id="${q.id}" placeholder="Your answer">
+    <div class="window-body">
+        <div class="top-status-bar">
+            <div class="status-group">
+                <span class="status-label">DB:</span>
+                <span id="dbStatusPill" class="pill">Connecting...</span>
             </div>
-        `;
-        quizQuestions.appendChild(div);
-    });
-    
-    rewardNameLabel.textContent = currentRow.rewardName;
-    rewardAmountLabel.textContent = (currentRow.rewardAmount2 || 0).toFixed(1) + " pts";
-    rewardInfoBox.textContent = currentRow.rewardInfo;
-    rewardInfoBox.classList.add("hidden");
+            <div class="status-group">
+                <span class="status-label">Session:</span>
+                <span id="loginStatus" class="pill">Logged out</span>
+                <button id="logoutBtn" class="btn-danger hidden">Logout</button>
+            </div>
+            <div class="status-group">
+                <span class="status-label">Balance:</span>
+                <span id="balancePill" class="pill pill-balance">0.0 pts</span>
+                <span class="status-label">Rev:</span>
+                <span id="reversalPill" class="pill pill-reversal">0.0 %</span>
+            </div>
+        </div>
+
+        <div class="content-grid">
+            <div class="panel left-panel">
+                <div class="panel-title">Login | Quiz Access</div>
+
+                <div id="loginPanel">
+                    <div class="field-group">
+                        <label class="field-label">UserID</label>
+                        <input type="text" id="userIdInput" value="matvei">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">PassID</label>
+                        <input type="password" id="passIdInput" value="matvei">
+                    </div>
+                    <button id="loginBtn" class="btn-primary">Login</button>
+                    <div class="mini-note">Default: matvei / matvei</div>
+                </div>
+
+                <div id="quizAccessPanel" class="hidden">
+                    <div class="field-group" style="margin-top:12px">
+                        <label class="field-label">Quiz Access ID</label>
+                        <input type="text" id="quizIdInput" value="matvei01">
+                    </div>
+                    <button id="loadQuizBtn" class="btn-primary">Load Quiz</button>
+                    <div class="mini-note">Default: matvei01</div>
+                </div>
+
+                <div id="bonusSection" class="hidden" style="margin-top:16px;">
+                    <div class="panel-title">Bonus Code</div>
+                    <div class="field-group">
+                        <input type="text" id="bonusCodeInput" placeholder="Enter code">
+                    </div>
+                    <button id="redeemBonusBtn" class="btn-primary">Redeem</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Quiz Dashboard</div>
+
+                <div id="quizPanel" class="hidden">
+                    <div id="quizMeta" class="info-line"></div>
+                    <div class="quiz-questions" id="quizQuestions"></div>
+                    <button id="submitQuizBtn" class="btn-primary" disabled>Submit</button>
+                    <div id="quizResult" class="info-line"></div>
+                </div>
+
+                <div id="rewardPanel" class="hidden">
+                    <div class="info-line">
+                        <strong>Reward:</strong> <span id="rewardNameLabel">Quiz Bonus</span><br>
+                        <strong>Amount:</strong> <span id="rewardAmountLabel">0</span> pts
+                    </div>
+                    <button id="claimRewardBtn" class="btn-primary">Claim</button>
+                    <div id="rewardInfoBox" class="reward-info-box hidden"></div>
+                </div>
+
+                <div class="info-line" style="margin-top:12px">
+                    <strong>Status:</strong> <span id="systemStatusText">Initializing...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-bar">
+            Supabase • Reversal = (1 − Earned / Total) × 100
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
+
+const supabase = createClient(
+  'https://snkqtblebdkhfilqbonw.supabase.co',
+  'sb_publishable_kW7wRE5JaUfWCA2yROazgg_H5b82Z56'
+);
+
+let currentUser = null;
+let currentQuiz = null;
+let earnedThisSession = 0;
+let lifetimeEarned = 0;
+let lifetimePossible = 1000;
+
+const els = {
+  dbStatusPill: document.getElementById('dbStatusPill'),
+  loginStatus: document.getElementById('loginStatus'),
+  balancePill: document.getElementById('balancePill'),
+  reversalPill: document.getElementById('reversalPill'),
+  titleUser: document.getElementById('titleUser'),
+  loginBtn: document.getElementById('loginBtn'),
+  logoutBtn: document.getElementById('logoutBtn'),
+  loadQuizBtn: document.getElementById('loadQuizBtn'),
+  submitQuizBtn: document.getElementById('submitQuizBtn'),
+  claimRewardBtn: document.getElementById('claimRewardBtn'),
+  redeemBonusBtn: document.getElementById('redeemBonusBtn'),
+  quizPanel: document.getElementById('quizPanel'),
+  rewardPanel: document.getElementById('rewardPanel'),
+  quizQuestions: document.getElementById('quizQuestions'),
+  quizResult: document.getElementById('quizResult'),
+  rewardInfoBox: document.getElementById('rewardInfoBox'),
+  systemStatusText: document.getElementById('systemStatusText'),
+  bonusSection: document.getElementById('bonusSection'),
+  toast: document.getElementById('toast')
+};
+
+function showToast(msg, isError = false) {
+  els.toast.textContent = msg;
+  els.toast.style.background = isError ? "var(--danger)" : "var(--xp-dark)";
+  els.toast.classList.add('show');
+  setTimeout(() => els.toast.classList.remove('show'), 2800);
 }
 
-// Grade Quiz
-function gradeQuiz() {
-    if (!currentRow) return;
-    
-    const userQ1 = document.getElementById("userQ1").value.trim();
-    const userQ2 = document.getElementById("userQ2").value.trim();
-    const userQ3 = document.getElementById("userQ3").value.trim();
-    
-    let correct = 0;
-    if (userQ1 === String(currentRow.a1)) correct++;
-    if (userQ2 === String(currentRow.a2)) correct++;
-    if (userQ3 === String(currentRow.a3)) correct++;
-    
-    const totalQuestions = 3;
-    const totalReward = currentRow.rewardAmount || 0;
-    const perQuestion = totalReward / totalQuestions;
-    const earned = perQuestion * correct;
-    
-    earnedThisQuiz = earned;
-    updateBalanceUI(earned, totalReward);
-    
-    quizResult.textContent = 
-        `Correct: ${correct}/${totalQuestions} | Earned: ${earned.toFixed(1)} pts | Total Reward: ${totalReward.toFixed(1)} pts`;
-    submitQuizBtn.disabled = true;
+function updateReversalDisplay() {
+  const rev = lifetimePossible > 0 ? ((1 - (lifetimeEarned / lifetimePossible)) * 100).toFixed(1) : 0;
+  els.reversalPill.textContent = rev + " %";
 }
 
-// Update User in Supabase
-async function updateUserInSupabase(userId, quizId, earned, total) {
-    try {
-        // First get current user data
-        const { data: userData, error: fetchError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('UserID', userId)
-            .single();
-        
-        if (fetchError) {
-            showToast("Error fetching user data.");
-            return false;
-        }
-        
-        // Calculate new values
-        const currentBalance = parseFloat(userData.Balance || "0");
-        const newBalance = currentBalance + earned;
-        const newReversal = total > 0 ? (1 - (earned / total)) * 100 : 0;
-        
-        // Update user in Supabase
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({
-                Balance: newBalance,
-                Reversal: newReversal
-            })
-            .eq('UserID', userId);
-        
-        if (updateError) {
-            showToast("Error updating user: " + updateError.message);
-            return false;
-        }
-        
-        // Record quiz attempt
-        const { error: attemptError } = await supabase
-            .from('quiz_attempts')
-            .insert({
-                user_id: userId,
-                quiz_id: quizId,
-                earned_points: earned,
-                created_at: new Date().toISOString()
-            });
-        
-        if (attemptError) {
-            console.warn("Failed to record attempt:", attemptError);
-            // Continue even if attempt recording fails
-        }
-        
-        showToast("Balance and Reversal updated successfully!");
-        return true;
-    } catch (error) {
-        console.error("Error updating Supabase:", error);
-        showToast("Update failed - check console");
-        return false;
+async function init() {
+  try {
+    const { data } = await supabase.from('users').select('userid').limit(1);
+    if (data) {
+      els.dbStatusPill.textContent = "Live (Supabase)";
+      els.systemStatusText.textContent = "Connected";
+      showToast("Database ready");
     }
+  } catch (err) {
+    console.error(err);
+    els.dbStatusPill.textContent = "Error";
+    els.dbStatusPill.className = "pill";
+    els.systemStatusText.textContent = "Connection failed";
+    showToast("Connection failed – check console", true);
+  }
 }
 
-// Check if can redeem
-function canRedeem() {
-    return currentRow && currentBalance >= (currentRow.rewardAmount2 || 0);
+function setLoggedIn(user) {
+  currentUser = user;
+  els.titleUser.textContent = user.userid;
+  els.loginStatus.textContent = "Logged in";
+  els.loginStatus.className = "pill pill-logged";
+  els.balancePill.textContent = Number(user.balance||0).toFixed(1) + " pts";
+  document.getElementById('loginPanel').classList.add('hidden');
+  document.getElementById('quizAccessPanel').classList.remove('hidden');
+  els.logoutBtn.classList.remove('hidden');
+  els.bonusSection.classList.remove('hidden');
+  updateReversalDisplay();
 }
 
-// Handle Redeem
-function handleRedeem() {
-    if (canRedeem()) {
-        rewardInfoBox.classList.remove("hidden");
-    } else {
-        showToast("Minimum points not reached to redeem this reward.");
-    }
+function setLoggedOut() {
+  currentUser = null;
+  currentQuiz = null;
+  earnedThisSession = 0;
+  els.titleUser.textContent = "Guest";
+  els.loginStatus.textContent = "Logged out";
+  els.loginStatus.className = "pill";
+  els.balancePill.textContent = "0.0 pts";
+  els.reversalPill.textContent = "0.0 %";
+  els.logoutBtn.classList.add('hidden');
+  document.getElementById('loginPanel').classList.remove('hidden');
+  document.getElementById('quizAccessPanel').classList.add('hidden');
+  els.bonusSection.classList.add('hidden');
+  els.quizPanel.classList.add('hidden');
+  els.rewardPanel.classList.add('hidden');
 }
 
-// Handle Quiz Submission
-async function handleQuizSubmission() {
-    if (!currentRow || !currentUser || !currentQuizId) return;
-    
-    gradeQuiz();
-    
-    const quizIdInput = document.getElementById("quizIdInput");
-    const success = await updateUserInSupabase(
-        currentUser.UserID || currentUser.userid,
-        currentQuizId,
-        earnedThisQuiz,
-        currentRow.rewardAmount
-    );
-    
-    if (success) {
-        quizIdInput.value = "";
-        quizPanel.classList.add("hidden");
-        rewardPanel.classList.add("hidden");
-        quizQuestions.innerHTML = "";
-        quizResult.textContent = "";
-        showToast("Quiz completed! Enter a new Quiz Access ID to load another quiz.");
-    } else {
-        showToast("Failed to update. Please try again.");
+els.loginBtn.onclick = async () => {
+  const uid = document.getElementById('userIdInput').value.trim();
+  const pwd = document.getElementById('passIdInput').value;
+
+  if (!uid || !pwd) return showToast("Enter credentials", true);
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('userid', uid)
+    .eq('passid', pwd)
+    .single();
+
+  if (error || !data) return showToast("Invalid login", true);
+
+  setLoggedIn(data);
+  showToast("Logged in");
+};
+
+els.logoutBtn.onclick = () => {
+  setLoggedOut();
+  showToast("Logged out");
+};
+
+els.loadQuizBtn.onclick = async () => {
+  const code = document.getElementById('quizIdInput').value.trim();
+  if (!code) return showToast("Enter quiz ID", true);
+
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('*')
+    .eq('quiz_access_id', code)
+    .single();
+
+  if (error || !data) return showToast("Quiz not found", true);
+
+  currentQuiz = data;
+
+  document.getElementById('quizMeta').textContent =
+    `Quiz: ${data.title || data.quiz_access_id} • Reward: ${data.reward} pts`;
+
+  const container = els.quizQuestions;
+  container.innerHTML = '';
+
+  for (let i = 1; i <= 3; i++) {
+    const q = data[`q${i}`];
+    if (!q) continue;
+    const div = document.createElement('div');
+    div.className = 'quiz-question';
+    div.innerHTML = `<span>Q${i}:</span> ${q}<br><input type="text" class="quiz-input" data-index="${i}" placeholder="Answer...">`;
+    container.appendChild(div);
+  }
+
+  els.quizPanel.classList.remove('hidden');
+  els.submitQuizBtn.disabled = false;
+  els.rewardPanel.classList.add('hidden');
+  showToast("Quiz loaded");
+};
+
+els.submitQuizBtn.onclick = async () => {
+  if (!currentQuiz) return;
+
+  const inputs = document.querySelectorAll('.quiz-input');
+  let correct = 0;
+  let answered = 0;
+
+  inputs.forEach(inp => {
+    const idx = inp.dataset.index;
+    const expected = (currentQuiz[`a${idx}`] || '').trim().toLowerCase();
+    const given = inp.value.trim().toLowerCase();
+    if (given) {
+      answered++;
+      if (given === expected) correct++;
     }
-}
+  });
 
-// Event Listeners
-loginBtn.addEventListener("click", async () => {
-    const userId = document.getElementById("userIdInput").value.trim();
-    const passId = document.getElementById("passIdInput").value.trim();
-    
-    if (!userId || !passId) {
-        showToast("Enter UserID and PassID.");
-        return;
-    }
-    
-    const userData = await fetchUser(userId, passId);
-    if (userData) {
-        setLoggedIn(userData, userData.UserLogo);
-        showToast(`Welcome ${userId}!`);
-    }
-});
+  const score = answered > 0 ? correct / answered : 0;
+  earnedThisSession = Math.round(score * currentQuiz.reward);
 
-logoutBtn.addEventListener("click", () => {
-    setLoggedOut();
-    showToast("Logged out");
-});
+  els.quizResult.innerHTML = `Correct: ${correct}/${answered} • ${Math.round(score*100)}% • Earned: ${earnedThisSession} pts`;
 
-loadQuizBtn.addEventListener("click", async () => {
-    const quizId = document.getElementById("quizIdInput").value.trim();
-    if (!quizId) {
-        showToast("Enter Quiz Access ID.");
-        return;
-    }
-    
-    currentQuizId = quizId;
-    const quizData = await fetchQuiz(quizId);
-    if (quizData) {
-        buildQuizUI(quizData);
-        quizPanel.classList.remove("hidden");
-        rewardPanel.classList.remove("hidden");
-        showToast("Quiz loaded!");
-    }
-});
+  if (earnedThisSession > 0) {
+    els.rewardAmountLabel.textContent = earnedThisSession;
+    els.rewardPanel.classList.remove('hidden');
+  }
 
-submitQuizBtn.addEventListener("click", () => {
-    handleQuizSubmission();
-});
+  showToast(`You earned ${earnedThisSession} pts`);
+};
 
-redeemBtn.addEventListener("click", () => {
-    handleRedeem();
-});
+els.claimRewardBtn.onclick = async () => {
+  if (!currentUser || earnedThisSession <= 0) return;
 
-hamburger.addEventListener("click", () => {
-    appShell.classList.toggle("left-panel-collapsed");
-});
+  const newBalance = Number(currentUser.balance || 0) + earnedThisSession;
 
-// Initialize
-setLoggedOut();
+  const { error } = await supabase
+    .from('users')
+    .update({ balance: newBalance })
+    .eq('userid', currentUser.userid);
+
+  if (error) return showToast("Claim failed", true);
+
+  lifetimeEarned += earnedThisSession;
+  currentUser.balance = newBalance;
+
+  els.balancePill.textContent = newBalance.toFixed(1) + " pts";
+  updateReversalDisplay();
+
+  els.rewardInfoBox.textContent = "Reward claimed!";
+  els.rewardInfoBox.classList.remove('hidden');
+  showToast("Reward added");
+
+  earnedThisSession = 0;
+  els.rewardPanel.classList.add('hidden');
+};
+
+els.redeemBonusBtn.onclick = async () => {
+  if (!currentUser) return showToast("Login first", true);
+
+  const code = document.getElementById('bonusCodeInput').value.trim().toUpperCase();
+  if (!code) return showToast("Enter code", true);
+
+  const { data: bonus, error: fetchErr } = await supabase
+    .from('bonus_codes')
+    .select('*')
+    .eq('code', code)
+    .is('used_by', null)
+    .single();
+
+  if (fetchErr || !bonus) return showToast("Invalid or used code", true);
+
+  const newBalance = Number(currentUser.balance || 0) + Number(bonus.points);
+
+  const { error: codeErr } = await supabase
+    .from('bonus_codes')
+    .update({ used_by: currentUser.userid, used_at: new Date().toISOString() })
+    .eq('code', code);
+
+  if (codeErr) return showToast("Update failed", true);
+
+  const { error: userErr } = await supabase
+    .from('users')
+    .update({ balance: newBalance })
+    .eq('userid', currentUser.userid);
+
+  if (userErr) return showToast("Balance update failed", true);
+
+  currentUser.balance = newBalance;
+  els.balancePill.textContent = newBalance.toFixed(1) + " pts";
+  showToast(`+${bonus.points} pts from ${code}`);
+};
+
+// Start
+init();
 </script>
 </body>
 </html>
