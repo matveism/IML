@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <title>WinCE Quiz Dashboard - Supabase</title>
 
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+
+  window.supabase = createClient(
+    'https://snkqtblebdkhfilqbonw.supabase.co',
+    'sb_publishable_kW7wRE5JaUfWCA2yROazgg_H5b82Z56'
+  );
+</script>
+
 <style>
 :root {
     --xp-bg: #c0c0c0;
@@ -173,14 +182,14 @@ button[disabled] { opacity: .5; cursor: default; }
 </head>
 <body>
 
-<div class="app-shell">
+<div class="app-shell" id="appShell">
     <div class="title-bar">
         <div class="title-left">
             <div class="logo-box"></div>
             <div class="title-text">Quiz Rewards Console - Supabase</div>
         </div>
         <div class="title-right">
-            <div id="titleUser">Guest</div>
+            <div id="titleUser" class="mini-user">Guest</div>
             <div id="titleUserLogo" class="user-logo"></div>
         </div>
     </div>
@@ -189,7 +198,7 @@ button[disabled] { opacity: .5; cursor: default; }
         <div class="top-status-bar">
             <div class="status-group">
                 <span class="status-label">DB:</span>
-                <span id="dbStatusPill" class="pill">Connecting...</span>
+                <span id="dbStatusPill" class="pill pill-connected">Connecting...</span>
             </div>
             <div class="status-group">
                 <span class="status-label">Session:</span>
@@ -210,12 +219,12 @@ button[disabled] { opacity: .5; cursor: default; }
 
                 <div id="loginPanel">
                     <div class="field-group">
-                        <label class="field-label">UserID</label>
-                        <input type="text" id="userIdInput" value="matvei">
+                        <label class="field-label" for="userIdInput">UserID</label>
+                        <input type="text" id="userIdInput" placeholder="matvei" value="matvei">
                     </div>
                     <div class="field-group">
-                        <label class="field-label">PassID</label>
-                        <input type="password" id="passIdInput" value="matvei">
+                        <label class="field-label" for="passIdInput">PassID</label>
+                        <input type="password" id="passIdInput" placeholder="••••••" value="matvei">
                     </div>
                     <button id="loginBtn" class="btn-primary">Login</button>
                     <div class="mini-note">Default: matvei / matvei</div>
@@ -223,17 +232,17 @@ button[disabled] { opacity: .5; cursor: default; }
 
                 <div id="quizAccessPanel" class="hidden">
                     <div class="field-group" style="margin-top:12px">
-                        <label class="field-label">Quiz Access ID</label>
-                        <input type="text" id="quizIdInput" value="matvei01">
+                        <label class="field-label" for="quizIdInput">Quiz Access ID</label>
+                        <input type="text" id="quizIdInput" placeholder="matvei01" value="matvei01">
                     </div>
                     <button id="loadQuizBtn" class="btn-primary">Load Quiz</button>
                     <div class="mini-note">Default: matvei01</div>
                 </div>
 
                 <div id="bonusSection" class="hidden" style="margin-top:16px;">
-                    <div class="panel-title">Bonus Code</div>
+                    <div class="panel-title">Bonus Code Redemption</div>
                     <div class="field-group">
-                        <input type="text" id="bonusCodeInput" placeholder="Enter code">
+                        <input type="text" id="bonusCodeInput" placeholder="Enter bonus code">
                     </div>
                     <button id="redeemBonusBtn" class="btn-primary">Redeem</button>
                 </div>
@@ -245,7 +254,7 @@ button[disabled] { opacity: .5; cursor: default; }
                 <div id="quizPanel" class="hidden">
                     <div id="quizMeta" class="info-line"></div>
                     <div class="quiz-questions" id="quizQuestions"></div>
-                    <button id="submitQuizBtn" class="btn-primary" disabled>Submit</button>
+                    <button id="submitQuizBtn" class="btn-primary" disabled>Submit Answers</button>
                     <div id="quizResult" class="info-line"></div>
                 </div>
 
@@ -254,31 +263,29 @@ button[disabled] { opacity: .5; cursor: default; }
                         <strong>Reward:</strong> <span id="rewardNameLabel">Quiz Bonus</span><br>
                         <strong>Amount:</strong> <span id="rewardAmountLabel">0</span> pts
                     </div>
-                    <button id="claimRewardBtn" class="btn-primary">Claim</button>
+                    <button id="claimRewardBtn" class="btn-primary">Claim Reward</button>
                     <div id="rewardInfoBox" class="reward-info-box hidden"></div>
                 </div>
 
-                <div class="info-line" style="margin-top:12px">
+                <div id="systemStatus" class="info-line" style="margin-top:12px">
                     <strong>Status:</strong> <span id="systemStatusText">Initializing...</span>
                 </div>
             </div>
         </div>
 
         <div class="footer-bar">
-            Supabase • Reversal = (1 − Earned / Total) × 100
+            Supabase Postgres • Reversal % = (1 − (Earned / Total)) × 100
         </div>
     </div>
 </div>
 
 <div id="toast" class="toast"></div>
 
-<script type="module">
-import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
-
-const supabase = createClient(
-  'https://snkqtblebdkhfilqbonw.supabase.co',
-  'sb_publishable_kW7wRE5JaUfWCA2yROazgg_H5b82Z56'
-);
+<script>
+// ────────────────────────────────────────────────
+// MAIN APPLICATION LOGIC (non-module part)
+// Uses window.supabase from the type="module" block above
+// ────────────────────────────────────────────────
 
 let currentUser = null;
 let currentQuiz = null;
@@ -287,238 +294,272 @@ let lifetimeEarned = 0;
 let lifetimePossible = 1000;
 
 const els = {
-  dbStatusPill: document.getElementById('dbStatusPill'),
-  loginStatus: document.getElementById('loginStatus'),
-  balancePill: document.getElementById('balancePill'),
-  reversalPill: document.getElementById('reversalPill'),
-  titleUser: document.getElementById('titleUser'),
-  loginBtn: document.getElementById('loginBtn'),
-  logoutBtn: document.getElementById('logoutBtn'),
-  loadQuizBtn: document.getElementById('loadQuizBtn'),
-  submitQuizBtn: document.getElementById('submitQuizBtn'),
-  claimRewardBtn: document.getElementById('claimRewardBtn'),
-  redeemBonusBtn: document.getElementById('redeemBonusBtn'),
-  quizPanel: document.getElementById('quizPanel'),
-  rewardPanel: document.getElementById('rewardPanel'),
-  quizQuestions: document.getElementById('quizQuestions'),
-  quizResult: document.getElementById('quizResult'),
-  rewardInfoBox: document.getElementById('rewardInfoBox'),
-  systemStatusText: document.getElementById('systemStatusText'),
-  bonusSection: document.getElementById('bonusSection'),
-  toast: document.getElementById('toast')
+    dbStatusPill: document.getElementById('dbStatusPill'),
+    loginStatus: document.getElementById('loginStatus'),
+    balancePill: document.getElementById('balancePill'),
+    reversalPill: document.getElementById('reversalPill'),
+    titleUser: document.getElementById('titleUser'),
+    loginBtn: document.getElementById('loginBtn'),
+    logoutBtn: document.getElementById('logoutBtn'),
+    loadQuizBtn: document.getElementById('loadQuizBtn'),
+    submitQuizBtn: document.getElementById('submitQuizBtn'),
+    claimRewardBtn: document.getElementById('claimRewardBtn'),
+    redeemBonusBtn: document.getElementById('redeemBonusBtn'),
+    quizPanel: document.getElementById('quizPanel'),
+    rewardPanel: document.getElementById('rewardPanel'),
+    quizQuestions: document.getElementById('quizQuestions'),
+    quizResult: document.getElementById('quizResult'),
+    rewardInfoBox: document.getElementById('rewardInfoBox'),
+    systemStatusText: document.getElementById('systemStatusText'),
+    bonusSection: document.getElementById('bonusSection'),
+    toast: document.getElementById('toast')
 };
 
 function showToast(msg, isError = false) {
-  els.toast.textContent = msg;
-  els.toast.style.background = isError ? "var(--danger)" : "var(--xp-dark)";
-  els.toast.classList.add('show');
-  setTimeout(() => els.toast.classList.remove('show'), 2800);
+    els.toast.textContent = msg;
+    els.toast.style.background = isError ? "var(--danger)" : "var(--xp-dark)";
+    els.toast.classList.add('show');
+    setTimeout(() => els.toast.classList.remove('show'), 2800);
 }
 
 function updateReversalDisplay() {
-  const rev = lifetimePossible > 0 ? ((1 - (lifetimeEarned / lifetimePossible)) * 100).toFixed(1) : 0;
-  els.reversalPill.textContent = rev + " %";
+    const reversal = lifetimePossible > 0 
+        ? ((1 - (lifetimeEarned / lifetimePossible)) * 100).toFixed(1) 
+        : 0.0;
+    els.reversalPill.textContent = reversal + " %";
 }
 
 async function init() {
-  try {
-    const { data } = await supabase.from('users').select('userid').limit(1);
-    if (data) {
-      els.dbStatusPill.textContent = "Live (Supabase)";
-      els.systemStatusText.textContent = "Connected";
-      showToast("Database ready");
+    try {
+        const { data, error } = await window.supabase
+            .from('users')
+            .select('userid')
+            .limit(1);
+
+        if (error) throw error;
+
+        els.dbStatusPill.textContent = "Live (Supabase)";
+        els.systemStatusText.textContent = "Connected to Supabase";
+        showToast("Database connected");
+    } catch (err) {
+        console.error("Supabase connection failed:", err);
+        els.dbStatusPill.textContent = "Error";
+        els.dbStatusPill.className = "pill";
+        els.systemStatusText.textContent = "Connection failed - check console";
+        showToast("Cannot connect to database", true);
     }
-  } catch (err) {
-    console.error(err);
-    els.dbStatusPill.textContent = "Error";
-    els.dbStatusPill.className = "pill";
-    els.systemStatusText.textContent = "Connection failed";
-    showToast("Connection failed – check console", true);
-  }
 }
 
 function setLoggedIn(user) {
-  currentUser = user;
-  els.titleUser.textContent = user.userid;
-  els.loginStatus.textContent = "Logged in";
-  els.loginStatus.className = "pill pill-logged";
-  els.balancePill.textContent = Number(user.balance||0).toFixed(1) + " pts";
-  document.getElementById('loginPanel').classList.add('hidden');
-  document.getElementById('quizAccessPanel').classList.remove('hidden');
-  els.logoutBtn.classList.remove('hidden');
-  els.bonusSection.classList.remove('hidden');
-  updateReversalDisplay();
+    currentUser = user;
+    els.titleUser.textContent = user.userid;
+    els.loginStatus.textContent = "Logged in";
+    els.loginStatus.className = "pill pill-logged";
+    els.balancePill.textContent = Number(user.balance||0).toFixed(1) + " pts";
+    document.getElementById('loginPanel').classList.add('hidden');
+    document.getElementById('quizAccessPanel').classList.remove('hidden');
+    els.logoutBtn.classList.remove('hidden');
+    els.bonusSection.classList.remove('hidden');
+    updateReversalDisplay();
 }
 
 function setLoggedOut() {
-  currentUser = null;
-  currentQuiz = null;
-  earnedThisSession = 0;
-  els.titleUser.textContent = "Guest";
-  els.loginStatus.textContent = "Logged out";
-  els.loginStatus.className = "pill";
-  els.balancePill.textContent = "0.0 pts";
-  els.reversalPill.textContent = "0.0 %";
-  els.logoutBtn.classList.add('hidden');
-  document.getElementById('loginPanel').classList.remove('hidden');
-  document.getElementById('quizAccessPanel').classList.add('hidden');
-  els.bonusSection.classList.add('hidden');
-  els.quizPanel.classList.add('hidden');
-  els.rewardPanel.classList.add('hidden');
+    currentUser = null;
+    currentQuiz = null;
+    earnedThisSession = 0;
+    els.titleUser.textContent = "Guest";
+    els.loginStatus.textContent = "Logged out";
+    els.loginStatus.className = "pill";
+    els.balancePill.textContent = "0.0 pts";
+    els.reversalPill.textContent = "0.0 %";
+    els.logoutBtn.classList.add('hidden');
+    document.getElementById('loginPanel').classList.remove('hidden');
+    document.getElementById('quizAccessPanel').classList.add('hidden');
+    els.bonusSection.classList.add('hidden');
+    els.quizPanel.classList.add('hidden');
+    els.rewardPanel.classList.add('hidden');
 }
 
 els.loginBtn.onclick = async () => {
-  const uid = document.getElementById('userIdInput').value.trim();
-  const pwd = document.getElementById('passIdInput').value;
+    const uid = document.getElementById('userIdInput').value.trim();
+    const pwd = document.getElementById('passIdInput').value;
 
-  if (!uid || !pwd) return showToast("Enter credentials", true);
+    if (!uid || !pwd) return showToast("Enter username and password", true);
 
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('userid', uid)
-    .eq('passid', pwd)
-    .single();
+    try {
+        const { data, error } = await window.supabase
+            .from('users')
+            .select('*')
+            .eq('userid', uid)
+            .eq('passid', pwd)
+            .single();
 
-  if (error || !data) return showToast("Invalid login", true);
+        if (error || !data) return showToast("Invalid credentials", true);
 
-  setLoggedIn(data);
-  showToast("Logged in");
+        setLoggedIn(data);
+        showToast("Welcome back!");
+    } catch (err) {
+        showToast("Login error", true);
+        console.error(err);
+    }
 };
 
 els.logoutBtn.onclick = () => {
-  setLoggedOut();
-  showToast("Logged out");
+    setLoggedOut();
+    showToast("Logged out");
 };
 
 els.loadQuizBtn.onclick = async () => {
-  const code = document.getElementById('quizIdInput').value.trim();
-  if (!code) return showToast("Enter quiz ID", true);
+    const code = document.getElementById('quizIdInput').value.trim();
+    if (!code) return showToast("Enter quiz ID", true);
 
-  const { data, error } = await supabase
-    .from('quizzes')
-    .select('*')
-    .eq('quiz_access_id', code)
-    .single();
+    try {
+        const { data, error } = await window.supabase
+            .from('quizzes')
+            .select('*')
+            .eq('quiz_access_id', code)
+            .single();
 
-  if (error || !data) return showToast("Quiz not found", true);
+        if (error || !data) return showToast("Quiz not found", true);
 
-  currentQuiz = data;
+        currentQuiz = data;
 
-  document.getElementById('quizMeta').textContent =
-    `Quiz: ${data.title || data.quiz_access_id} • Reward: ${data.reward} pts`;
+        document.getElementById('quizMeta').textContent = 
+            `Quiz: ${data.title || data.quiz_access_id} • Reward: ${data.reward} pts`;
 
-  const container = els.quizQuestions;
-  container.innerHTML = '';
+        const container = els.quizQuestions;
+        container.innerHTML = '';
 
-  for (let i = 1; i <= 3; i++) {
-    const q = data[`q${i}`];
-    if (!q) continue;
-    const div = document.createElement('div');
-    div.className = 'quiz-question';
-    div.innerHTML = `<span>Q${i}:</span> ${q}<br><input type="text" class="quiz-input" data-index="${i}" placeholder="Answer...">`;
-    container.appendChild(div);
-  }
+        for (let i = 1; i <= 3; i++) {
+            const q = data[`q${i}`];
+            if (!q) continue;
+            const div = document.createElement('div');
+            div.className = 'quiz-question';
+            div.innerHTML = `
+                <span>Q${i}:</span> ${q}<br>
+                <input type="text" class="quiz-input" data-index="${i}" placeholder="Your answer...">
+            `;
+            container.appendChild(div);
+        }
 
-  els.quizPanel.classList.remove('hidden');
-  els.submitQuizBtn.disabled = false;
-  els.rewardPanel.classList.add('hidden');
-  showToast("Quiz loaded");
+        els.quizPanel.classList.remove('hidden');
+        els.submitQuizBtn.disabled = false;
+        els.rewardPanel.classList.add('hidden');
+        showToast("Quiz loaded");
+    } catch (err) {
+        showToast("Error loading quiz", true);
+        console.error(err);
+    }
 };
 
 els.submitQuizBtn.onclick = async () => {
-  if (!currentQuiz) return;
+    if (!currentQuiz) return;
 
-  const inputs = document.querySelectorAll('.quiz-input');
-  let correct = 0;
-  let answered = 0;
+    const inputs = document.querySelectorAll('.quiz-input');
+    let correct = 0;
+    let answered = 0;
 
-  inputs.forEach(inp => {
-    const idx = inp.dataset.index;
-    const expected = (currentQuiz[`a${idx}`] || '').trim().toLowerCase();
-    const given = inp.value.trim().toLowerCase();
-    if (given) {
-      answered++;
-      if (given === expected) correct++;
+    inputs.forEach(inp => {
+        const idx = inp.dataset.index;
+        const expected = (currentQuiz[`a${idx}`] || '').trim().toLowerCase();
+        const given = inp.value.trim().toLowerCase();
+        if (given) {
+            answered++;
+            if (given === expected) correct++;
+        }
+    });
+
+    const score = answered > 0 ? (correct / answered) : 0;
+    earnedThisSession = Math.round(score * currentQuiz.reward);
+
+    els.quizResult.innerHTML = `
+        Correct: ${correct}/${answered} • Score: ${(score*100).toFixed(0)}%<br>
+        You earned: ${earnedThisSession} pts
+    `;
+
+    if (earnedThisSession > 0) {
+        els.rewardAmountLabel.textContent = earnedThisSession;
+        els.rewardPanel.classList.remove('hidden');
     }
-  });
 
-  const score = answered > 0 ? correct / answered : 0;
-  earnedThisSession = Math.round(score * currentQuiz.reward);
-
-  els.quizResult.innerHTML = `Correct: ${correct}/${answered} • ${Math.round(score*100)}% • Earned: ${earnedThisSession} pts`;
-
-  if (earnedThisSession > 0) {
-    els.rewardAmountLabel.textContent = earnedThisSession;
-    els.rewardPanel.classList.remove('hidden');
-  }
-
-  showToast(`You earned ${earnedThisSession} pts`);
+    showToast(`You earned ${earnedThisSession} pts`);
 };
 
 els.claimRewardBtn.onclick = async () => {
-  if (!currentUser || earnedThisSession <= 0) return;
+    if (!currentUser || earnedThisSession <= 0) return showToast("No reward to claim", true);
 
-  const newBalance = Number(currentUser.balance || 0) + earnedThisSession;
+    try {
+        const newBalance = Number(currentUser.balance || 0) + earnedThisSession;
 
-  const { error } = await supabase
-    .from('users')
-    .update({ balance: newBalance })
-    .eq('userid', currentUser.userid);
+        const { error } = await window.supabase
+            .from('users')
+            .update({ balance: newBalance })
+            .eq('userid', currentUser.userid);
 
-  if (error) return showToast("Claim failed", true);
+        if (error) throw error;
 
-  lifetimeEarned += earnedThisSession;
-  currentUser.balance = newBalance;
+        lifetimeEarned += earnedThisSession;
+        currentUser.balance = newBalance;
 
-  els.balancePill.textContent = newBalance.toFixed(1) + " pts";
-  updateReversalDisplay();
+        els.balancePill.textContent = newBalance.toFixed(1) + " pts";
+        updateReversalDisplay();
 
-  els.rewardInfoBox.textContent = "Reward claimed!";
-  els.rewardInfoBox.classList.remove('hidden');
-  showToast("Reward added");
+        els.rewardInfoBox.textContent = "Reward claimed successfully!";
+        els.rewardInfoBox.classList.remove('hidden');
+        showToast("Reward added to balance");
 
-  earnedThisSession = 0;
-  els.rewardPanel.classList.add('hidden');
+        earnedThisSession = 0;
+        els.rewardPanel.classList.add('hidden');
+    } catch (err) {
+        showToast("Error claiming reward", true);
+        console.error(err);
+    }
 };
 
 els.redeemBonusBtn.onclick = async () => {
-  if (!currentUser) return showToast("Login first", true);
+    if (!currentUser) return showToast("Please login first", true);
 
-  const code = document.getElementById('bonusCodeInput').value.trim().toUpperCase();
-  if (!code) return showToast("Enter code", true);
+    const code = document.getElementById('bonusCodeInput').value.trim().toUpperCase();
+    if (!code) return showToast("Enter code", true);
 
-  const { data: bonus, error: fetchErr } = await supabase
-    .from('bonus_codes')
-    .select('*')
-    .eq('code', code)
-    .is('used_by', null)
-    .single();
+    try {
+        const { data: bonus, error: fetchErr } = await window.supabase
+            .from('bonus_codes')
+            .select('*')
+            .eq('code', code)
+            .is('used_by', null)
+            .single();
 
-  if (fetchErr || !bonus) return showToast("Invalid or used code", true);
+        if (fetchErr || !bonus) return showToast("Invalid or already used code", true);
 
-  const newBalance = Number(currentUser.balance || 0) + Number(bonus.points);
+        const newBalance = Number(currentUser.balance || 0) + Number(bonus.points);
 
-  const { error: codeErr } = await supabase
-    .from('bonus_codes')
-    .update({ used_by: currentUser.userid, used_at: new Date().toISOString() })
-    .eq('code', code);
+        // Update bonus code
+        await window.supabase
+            .from('bonus_codes')
+            .update({ 
+                used_by: currentUser.userid, 
+                used_at: new Date().toISOString() 
+            })
+            .eq('code', code);
 
-  if (codeErr) return showToast("Update failed", true);
+        // Update user balance
+        await window.supabase
+            .from('users')
+            .update({ balance: newBalance })
+            .eq('userid', currentUser.userid);
 
-  const { error: userErr } = await supabase
-    .from('users')
-    .update({ balance: newBalance })
-    .eq('userid', currentUser.userid);
+        currentUser.balance = newBalance;
+        els.balancePill.textContent = newBalance.toFixed(1) + " pts";
 
-  if (userErr) return showToast("Balance update failed", true);
-
-  currentUser.balance = newBalance;
-  els.balancePill.textContent = newBalance.toFixed(1) + " pts";
-  showToast(`+${bonus.points} pts from ${code}`);
+        showToast(`Success! +${bonus.points} pts from code ${code}`);
+    } catch (err) {
+        showToast("Error redeeming code", true);
+        console.error(err);
+    }
 };
 
-// Start
+// Start the app
 init();
 </script>
 </body>
