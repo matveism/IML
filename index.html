@@ -267,13 +267,17 @@ function showToast(msg, duration = 2800) {
 }
 
 async function restdbFetch(endpoint, options = {}) {
-  const url = RESTDB_URL + endpoint;
-  const headers = {
-    "x-apikey": RESTDB_APIKEY,
-    "Content-Type": "application/json"
-  };
+  // Append apikey to URL as query param to avoid custom header CORS issues
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const url = RESTDB_URL + endpoint + separator + 'apikey=' + RESTDB_APIKEY;
 
-  console.log("Fetching:", url);
+  // Headers - only Content-Type if needed (for PATCH with body)
+  const headers = {};
+  if (options.body) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  console.log("Fetching:", url, "Method:", options.method || 'GET');
 
   try {
     const res = await fetch(url, {
@@ -293,7 +297,7 @@ async function restdbFetch(endpoint, options = {}) {
 
     return await res.json();
   } catch (err) {
-    console.error("Fetch failed:", err.message);
+    console.error("Fetch failed:", err);
     throw err;
   }
 }
@@ -345,7 +349,7 @@ async function login() {
     let msg = "Login failed";
     if (err.message.includes("401")) msg += " – invalid API key";
     if (err.message.includes("403")) msg += " – permission denied (check CORS & API key settings)";
-    if (err.message.includes("Failed to fetch")) msg += " – network/CORS issue (try opening file directly)";
+    if (err.message.includes("Failed to fetch")) msg += " – network/CORS issue (try local file or local server)";
     showToast(msg + " – see console (F12)", 5000);
   } finally {
     loginBtn.disabled = false;
