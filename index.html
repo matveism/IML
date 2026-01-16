@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quiz Rewards Console</title>
 <style>
   :root {
@@ -13,12 +14,14 @@
     --xp-border: #404040;
     --xp-text: #000000;
     --danger: #b00020;
+    --success: #0a7c00;
   }
   * { box-sizing: border-box; font-family: "Tahoma", "Segoe UI", sans-serif; }
   body {
     margin: 0;
     background: radial-gradient(circle at top left, #e0e0e0, #a0a0a0);
     color: var(--xp-text);
+    min-height: 100vh;
   }
   .app-shell {
     max-width: 960px;
@@ -84,8 +87,9 @@
   button {
     padding: 3px 10px; font-size: 12px;
     border: 1px solid #404040; background: linear-gradient(to bottom, #f8f8f8, #c0c0c0);
-    cursor: pointer;
+    cursor: pointer; border-radius: 2px;
   }
+  button:hover { background: linear-gradient(to bottom, #ffffff, #e0e0e0); }
   button:active { background: linear-gradient(to bottom, #c0c0c0, #f8f8f8); }
   button[disabled] { opacity: 0.5; cursor: default; }
   .btn-primary {
@@ -96,7 +100,11 @@
     background: linear-gradient(to bottom, #ffe0e0, #ffb0b0);
     border-color: #800000;
   }
-  .mini-note { font-size: 10px; color: #333; }
+  .btn-success {
+    background: linear-gradient(to bottom, #e0ffe0, #a0e0a0);
+    border-color: #0a7c00;
+  }
+  .mini-note { font-size: 10px; color: #333; margin-top: 4px; }
   .quiz-questions { margin-top: 6px; }
   .quiz-question {
     margin-bottom: 6px; padding: 4px; border-radius: 3px;
@@ -104,6 +112,7 @@
   }
   .quiz-question span { font-weight: bold; }
   .quiz-input { margin-top: 3px; }
+  .quiz-input input { width: 100%; padding: 3px 4px; font-size: 11px; }
   .info-line { font-size: 11px; margin-top: 4px; }
   .reward-info-box {
     margin-top: 6px; padding: 4px; border-radius: 3px;
@@ -122,10 +131,13 @@
     transform: translateY(10px);
     transition: opacity 0.2s ease, transform 0.2s ease;
     z-index: 9999;
+    max-width: 300px;
   }
+  .toast.success { background: var(--success); }
   .toast.show {
     opacity: 1; pointer-events: auto; transform: translateY(0);
   }
+  .loading { opacity: 0.7; cursor: wait; }
   @media (max-width: 720px) {
     .app-shell { margin: 5px; }
     .content-grid { grid-template-columns: 1fr; }
@@ -189,7 +201,7 @@
             <input type="text" id="quizIdInput" placeholder="demo01" autocomplete="off" />
           </div>
           <button id="loadQuizBtn" class="btn-primary">Load Quiz</button>
-          <div class="mini-note">Loaded from restdb.io</div>
+          <div class="mini-note">Loaded from Google Sheets</div>
         </div>
       </div>
 
@@ -213,7 +225,7 @@
     </div>
 
     <div class="footer-bar">
-      Reversal % = (1 − (Earned / Total)) × 100        Example: 1/3 of 250 = 83.3 pts
+      Reversal % = (1 − (Earned / Total)) × 100        Example: 1/3 of 250 = 83.3 pts
     </div>
   </div>
 </div>
@@ -222,12 +234,9 @@
 
 <script>
 // ────────────────────────────────────────────────
-// SETTINGS - USING FULL-ACCESS KEY (should bypass strict CORS issues)
+// SETTINGS - Google Apps Script API URL
 // ────────────────────────────────────────────────
-const RESTDB_URL    = "https://iml111-f101.restdb.io/rest/";
-const RESTDB_APIKEY = "497df992a420fd63af3a56ed699db0933b5a6";
-const USER_COLLECTION = "users";
-const QUIZ_COLLECTION = "quizzes";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx86cEIbGJACNmsbcRXsImCe0NbNW_09a1yrNnxl2onIWqLn7IryeSuAo4ir-3ylPdqyQ/exec";
 
 // State
 let currentUser    = null;
@@ -235,7 +244,7 @@ let currentUserId  = null;
 let currentQuiz    = null;
 let earnedThisQuiz = 0;
 
-// DOM
+// DOM Elements
 const toastEl           = document.getElementById("toast");
 const loginBtn          = document.getElementById("loginBtn");
 const logoutBtn         = document.getElementById("logoutBtn");
@@ -259,49 +268,168 @@ const quizPanel         = document.getElementById("quizPanel");
 const rewardPanel       = document.getElementById("rewardPanel");
 const appShell          = document.getElementById("appShell");
 const hamburger         = document.getElementById("hamburger");
+const userIdInput       = document.getElementById("userIdInput");
+const passIdInput       = document.getElementById("passIdInput");
+const quizIdInput       = document.getElementById("quizIdInput");
 
-function showToast(msg, duration = 3000) {
+// Toast notification
+function showToast(msg, type = "error", duration = 3000) {
   toastEl.textContent = msg;
+  toastEl.className = `toast ${type}`;
   toastEl.classList.add("show");
   setTimeout(() => toastEl.classList.remove("show"), duration);
 }
 
-async function restdbFetch(endpoint, options = {}) {
-  const url = RESTDB_URL + endpoint;
-  const headers = {
-    "x-apikey": RESTDB_APIKEY
-  };
-  if (options.body) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  console.log("Fetching:", url, "Method:", options.method || "GET");
-
+// Google Apps Script API helper
+async function apiRequest(action, data = {}) {
+  const url = APPS_SCRIPT_URL;
+  const params = new URLSearchParams();
+  params.append('action', action);
+  
+  // Add data to params
+  Object.keys(data).forEach(key => {
+    params.append(key, data[key]);
+  });
+  
   try {
-    const res = await fetch(url, {
-      ...options,
-      headers,
-      mode: "cors",
-      credentials: "omit"
+    console.log(`API Request: ${action}`, data);
+    
+    // For Google Apps Script, we need to use a specific approach
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors', // Important for Google Apps Script web apps
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString()
     });
-
-    if (!res.ok) {
-      let errorText = "";
-      try { errorText = await res.text(); } catch {}
-      throw new Error(`HTTP ${res.status} - ${errorText || "no details"}`);
-    }
-
-    return await res.json();
+    
+    // Since we're using no-cors, we can't read the response directly
+    // We'll use a different approach - load the response in an iframe
+    return await apiRequestWithIframe(action, data);
+    
   } catch (err) {
-    console.error("Fetch error:", err);
-    throw err;
+    console.error("API request failed:", err);
+    throw new Error(`Network error: ${err.message}`);
   }
 }
 
-// Login
+// Alternative method using iframe for Google Apps Script
+async function apiRequestWithIframe(action, data = {}) {
+  return new Promise((resolve, reject) => {
+    // Create a unique callback name
+    const callbackName = 'callback_' + Date.now() + '_' + Math.random().toString(36).substr(2);
+    
+    // Create a form
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = APPS_SCRIPT_URL;
+    form.target = callbackName;
+    form.style.display = 'none';
+    
+    // Add action parameter
+    const actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action';
+    actionInput.value = action;
+    form.appendChild(actionInput);
+    
+    // Add other data parameters
+    Object.keys(data).forEach(key => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = data[key];
+      form.appendChild(input);
+    });
+    
+    // Create iframe for response
+    const iframe = document.createElement('iframe');
+    iframe.name = callbackName;
+    iframe.style.display = 'none';
+    
+    // Handle response
+    iframe.onload = function() {
+      try {
+        // Try to get the response from iframe
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        const responseText = iframeDoc.body.textContent || iframeDoc.body.innerText;
+        
+        console.log("Raw response:", responseText);
+        
+        let response;
+        try {
+          response = JSON.parse(responseText);
+        } catch (e) {
+          // If not JSON, try to parse as plain text
+          response = { success: false, error: "Invalid response format", raw: responseText };
+        }
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(form);
+          document.body.removeChild(iframe);
+        }, 100);
+        
+        if (response.success === false) {
+          reject(new Error(response.error || "Request failed"));
+        } else {
+          resolve(response);
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+    
+    // Add to document and submit
+    document.body.appendChild(form);
+    document.body.appendChild(iframe);
+    form.submit();
+  });
+}
+
+// Direct fetch with query parameters (alternative method)
+async function directApiRequest(action, data = {}) {
+  const url = new URL(APPS_SCRIPT_URL);
+  url.searchParams.append('action', action);
+  
+  Object.keys(data).forEach(key => {
+    url.searchParams.append(key, data[key]);
+  });
+  
+  try {
+    console.log("Direct request to:", url.toString());
+    
+    // Try with fetch and cors mode
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      mode: 'cors',
+      redirect: 'follow'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const text = await response.text();
+    console.log("Response text:", text);
+    
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { success: true, data: text };
+    }
+  } catch (err) {
+    console.error("Direct request failed:", err);
+    // Fallback to iframe method
+    return apiRequestWithIframe(action, data);
+  }
+}
+
+// Login function
 async function login() {
-  const userId = document.getElementById("userIdInput").value.trim();
-  const passId = document.getElementById("passIdInput").value.trim();
+  const userId = userIdInput.value.trim();
+  const passId = passIdInput.value.trim();
 
   if (!userId || !passId) {
     showToast("Enter UserID and PassID");
@@ -310,56 +438,60 @@ async function login() {
 
   loginBtn.disabled = true;
   loginBtn.textContent = "Logging in...";
+  loginBtn.classList.add('loading');
 
   try {
-    const users = await restdbFetch(
-      `${USER_COLLECTION}?q={"userId":"${encodeURIComponent(userId)}","passId":"${encodeURIComponent(passId)}"}&max=1`
-    );
-
-    if (users.length === 0) {
-      showToast("Wrong credentials");
-      return;
+    const result = await directApiRequest('login', { userId, passId });
+    
+    if (result.success && result.user) {
+      const u = result.user;
+      currentUser = u.userId;
+      currentUserId = u.id || u.userId;
+      
+      // Update UI
+      titleUser.textContent = currentUser;
+      if (u.logoUrl) {
+        titleUserLogo.style.backgroundImage = `url(${u.logoUrl})`;
+      }
+      
+      loginStatus.textContent = "Logged in";
+      loginStatus.classList.add("pill-logged");
+      loginPanel.classList.add("hidden");
+      quizIdPanel.classList.remove("hidden");
+      logoutBtn.style.display = "inline-block";
+      
+      // Update balance and reversal
+      updateUIFromUser(u);
+      showToast("Logged in successfully!", "success", 1800);
+      
+      // Auto-focus quiz ID input
+      setTimeout(() => quizIdInput.focus(), 100);
+    } else {
+      showToast(result.error || "Wrong credentials");
     }
-
-    const u = users[0];
-    currentUser   = u.userId;
-    currentUserId = u._id;
-
-    titleUser.textContent = currentUser;
-    if (u.logoUrl) titleUserLogo.style.backgroundImage = `url(${u.logoUrl})`;
-
-    loginStatus.textContent = "Logged in";
-    loginStatus.classList.add("pill-logged");
-    loginPanel.classList.add("hidden");
-    quizIdPanel.classList.remove("hidden");
-    logoutBtn.style.display = "inline-block";
-
-    updateUIFromUser(u);
-    showToast("Logged in ✓", 1800);
   } catch (err) {
     console.error("Login failed:", err);
-    let msg = "Login failed";
-    if (err.message.includes("401")) msg += " – check API key";
-    if (err.message.includes("403")) msg += " – permissions issue";
-    if (err.message.includes("Failed to fetch")) msg += " – network/CORS (try local file)";
-    showToast(msg + " (see F12 console)", 5000);
+    showToast("Login failed: " + err.message, "error", 5000);
   } finally {
     loginBtn.disabled = false;
     loginBtn.textContent = "Login";
+    loginBtn.classList.remove('loading');
   }
 }
 
 function updateUIFromUser(user) {
-  const bal = Number(user.balance ?? 0);
-  const rev = Number(user.reversal ?? 0);
-  balancePill.textContent  = bal.toFixed(1) + " pts";
+  const bal = Number(user.balance || 0);
+  const rev = Number(user.reversal || 0);
+  balancePill.textContent = bal.toFixed(1) + " pts";
   reversalPill.textContent = rev.toFixed(1) + " %";
 }
 
-// Logout
+// Logout function
 function logout() {
   currentUser = currentUserId = currentQuiz = null;
   earnedThisQuiz = 0;
+  
+  // Reset UI
   titleUser.textContent = "Guest";
   titleUserLogo.style.backgroundImage = "none";
   balancePill.textContent = "0.0 pts";
@@ -373,11 +505,18 @@ function logout() {
   quizQuestions.innerHTML = "";
   quizResult.textContent = "";
   rewardInfoBox.classList.add("hidden");
+  
+  // Clear inputs
+  userIdInput.value = "";
+  passIdInput.value = "";
+  quizIdInput.value = "";
+  
+  showToast("Logged out", "success", 1800);
 }
 
-// Load Quiz
+// Load quiz function
 async function loadQuiz() {
-  const quizId = document.getElementById("quizIdInput").value.trim();
+  const quizId = quizIdInput.value.trim();
   if (!quizId) {
     showToast("Enter Quiz Access ID");
     return;
@@ -385,121 +524,208 @@ async function loadQuiz() {
 
   loadQuizBtn.disabled = true;
   loadQuizBtn.textContent = "Loading...";
+  loadQuizBtn.classList.add('loading');
 
   try {
-    const quizzes = await restdbFetch(
-      `${QUIZ_COLLECTION}?q={"quizId":"${encodeURIComponent(quizId)}"}&max=1`
-    );
-
-    if (quizzes.length === 0) {
-      showToast("Quiz not found");
-      return;
+    const result = await directApiRequest('getQuiz', { quizId });
+    
+    if (result.success && result.quiz) {
+      currentQuiz = result.quiz;
+      
+      // Update quiz metadata
+      quizMeta.textContent = `Reward: ${currentQuiz.rewardName || "—"} | Total: ${currentQuiz.rewardAmount || 0} pts`;
+      
+      // Clear previous questions
+      quizQuestions.innerHTML = "";
+      submitQuizBtn.disabled = false;
+      
+      // Create question inputs
+      const questions = [
+        { label: "Q1", text: currentQuiz.q1, id: "userQ1", answer: currentQuiz.a1 },
+        { label: "Q2", text: currentQuiz.q2, id: "userQ2", answer: currentQuiz.a2 },
+        { label: "Q3", text: currentQuiz.q3, id: "userQ3", answer: currentQuiz.a3 }
+      ];
+      
+      questions.forEach(q => {
+        if (!q.text) return;
+        
+        const div = document.createElement("div");
+        div.className = "quiz-question";
+        div.innerHTML = `
+          <div><span>${q.label}:</span> ${q.text}</div>
+          <div class="quiz-input">
+            <input type="text" id="${q.id}" placeholder="Your answer" autocomplete="off" />
+            <div class="mini-note" style="margin-top:2px;">Expected answer: ${q.answer || "Not set"}</div>
+          </div>
+        `;
+        quizQuestions.appendChild(div);
+      });
+      
+      // Update reward info
+      rewardNameLabel.textContent = currentQuiz.rewardName || "—";
+      rewardAmountLabel.textContent = Number(currentQuiz.rewardAmount || 0).toFixed(1) + " pts";
+      rewardInfoBox.textContent = currentQuiz.rewardInfo || "";
+      rewardInfoBox.classList.add("hidden");
+      
+      // Show panels
+      quizPanel.classList.remove("hidden");
+      rewardPanel.classList.remove("hidden");
+      
+      showToast("Quiz loaded successfully!", "success", 1800);
+      
+      // Auto-focus first question input
+      setTimeout(() => {
+        const firstInput = document.getElementById("userQ1");
+        if (firstInput) firstInput.focus();
+      }, 100);
+    } else {
+      showToast(result.error || "Quiz not found");
     }
-
-    currentQuiz = quizzes[0];
-
-    quizMeta.textContent = `Reward: ${currentQuiz.rewardName ?? "—"} | Total: ${currentQuiz.rewardAmount ?? 0} pts`;
-
-    quizQuestions.innerHTML = "";
-    submitQuizBtn.disabled = false;
-
-    const qs = [
-      { lbl:"Q1", txt:currentQuiz.q1, id:"userQ1" },
-      { lbl:"Q2", txt:currentQuiz.q2, id:"userQ2" },
-      { lbl:"Q3", txt:currentQuiz.q3, id:"userQ3" }
-    ];
-
-    qs.forEach(q => {
-      if (!q.txt) return;
-      const div = document.createElement("div");
-      div.className = "quiz-question";
-      div.innerHTML = `
-        <div><span>${q.lbl}:</span> ${q.txt}</div>
-        <div class="quiz-input"><input type="text" id="${q.id}" placeholder="Your answer" autocomplete="off" /></div>
-      `;
-      quizQuestions.appendChild(div);
-    });
-
-    rewardNameLabel.textContent   = currentQuiz.rewardName   ?? "—";
-    rewardAmountLabel.textContent = Number(currentQuiz.rewardAmount ?? 0).toFixed(1) + " pts";
-    rewardInfoBox.textContent     = currentQuiz.rewardInfo   ?? "";
-    rewardInfoBox.classList.add("hidden");
-
-    quizPanel.classList.remove("hidden");
-    rewardPanel.classList.remove("hidden");
-    showToast("Quiz loaded", 1800);
   } catch (err) {
     console.error("Load quiz error:", err);
-    showToast("Failed to load quiz – see console", 4000);
+    showToast("Failed to load quiz: " + err.message, "error", 4000);
   } finally {
     loadQuizBtn.disabled = false;
     loadQuizBtn.textContent = "Load Quiz";
+    loadQuizBtn.classList.remove('loading');
   }
 }
 
-// Grade & Save
-function gradeQuiz() {
-  if (!currentQuiz) return;
-
-  let correct = 0;
-  if (document.getElementById("userQ1")?.value.trim() === String(currentQuiz.a1 ?? "")) correct++;
-  if (document.getElementById("userQ2")?.value.trim() === String(currentQuiz.a2 ?? "")) correct++;
-  if (document.getElementById("userQ3")?.value.trim() === String(currentQuiz.a3 ?? "")) correct++;
-
-  const totalQ = 3;
-  const total  = Number(currentQuiz.rewardAmount ?? 0);
-  const perQ   = total / totalQ;
-  earnedThisQuiz = perQ * correct;
-
-  quizResult.textContent =
-    `Correct: ${correct}/${totalQ} | Earned: ${earnedThisQuiz.toFixed(1)} pts | Total possible: ${total.toFixed(1)} pts`;
-
-  const oldBal = Number(balancePill.textContent) || 0;
-  const newBal = oldBal + earnedThisQuiz;
-  const newRev = total > 0 ? (1 - (newBal / (newBal + total - earnedThisQuiz))) * 100 : 0;
-
-  balancePill.textContent  = newBal.toFixed(1)  + " pts";
-  reversalPill.textContent = newRev.toFixed(1) + " %";
-
-  saveUserProgress(newBal, newRev);
+// Grade quiz function
+async function gradeQuiz() {
+  if (!currentQuiz || !currentUser) return;
+  
+  // Disable submit button during processing
+  submitQuizBtn.disabled = true;
+  submitQuizBtn.textContent = "Grading...";
+  submitQuizBtn.classList.add('loading');
+  
+  try {
+    // Collect user answers
+    const answers = {
+      q1: document.getElementById("userQ1")?.value.trim() || "",
+      q2: document.getElementById("userQ2")?.value.trim() || "",
+      q3: document.getElementById("userQ3")?.value.trim() || ""
+    };
+    
+    // Send to API for grading
+    const result = await directApiRequest('submitQuiz', {
+      userId: currentUserId,
+      quizId: currentQuiz.quizId || quizIdInput.value.trim(),
+      answers: JSON.stringify(answers)
+    });
+    
+    if (result.success) {
+      // Update local state with results
+      earnedThisQuiz = Number(result.earned || 0);
+      const correct = Number(result.correct || 0);
+      const totalQ = Number(result.totalQuestions || 3);
+      const total = Number(currentQuiz.rewardAmount || 0);
+      
+      // Display results
+      quizResult.innerHTML = `
+        <strong>Results:</strong><br>
+        Correct: ${correct}/${totalQ}<br>
+        Earned: ${earnedThisQuiz.toFixed(1)} pts<br>
+        Total possible: ${total.toFixed(1)} pts
+      `;
+      
+      // Update balance and reversal
+      const oldBal = Number(balancePill.textContent) || 0;
+      const newBal = oldBal + earnedThisQuiz;
+      const newRev = total > 0 ? (1 - (earnedThisQuiz / total)) * 100 : 0;
+      
+      balancePill.textContent = newBal.toFixed(1) + " pts";
+      reversalPill.textContent = newRev.toFixed(1) + " %";
+      
+      // Save updated user data
+      await saveUserProgress(newBal, newRev);
+      
+      showToast(`Quiz submitted! Earned ${earnedThisQuiz.toFixed(1)} points`, "success", 3000);
+    } else {
+      showToast(result.error || "Failed to grade quiz");
+    }
+  } catch (err) {
+    console.error("Grade quiz error:", err);
+    showToast("Failed to submit quiz: " + err.message, "error", 4000);
+  } finally {
+    submitQuizBtn.disabled = false;
+    submitQuizBtn.textContent = "Submit Answers";
+    submitQuizBtn.classList.remove('loading');
+  }
 }
 
+// Save user progress function
 async function saveUserProgress(newBalance, newReversal) {
   if (!currentUserId) return;
-
+  
   try {
-    await restdbFetch(`${USER_COLLECTION}/${currentUserId}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        balance: newBalance,
-        reversal: newReversal
-      })
+    await directApiRequest('updateUser', {
+      userId: currentUserId,
+      balance: newBalance,
+      reversal: newReversal
     });
-    showToast("Progress saved ✓", 1800);
+    
+    console.log("Progress saved successfully");
   } catch (err) {
     console.error("Save failed:", err);
-    showToast("Could not save – check console", 4000);
+    showToast("Could not save progress - check console", "error", 4000);
   }
 }
 
-// Redeem
-function canRedeem() {
-  if (!currentQuiz) return false;
-  const needed = Number(currentQuiz.rewardAmount ?? 0);
-  const have   = Number(balancePill.textContent) || 0;
-  return have >= needed;
-}
-
-function handleRedeem() {
-  if (!canRedeem()) {
-    showToast("Not enough points to redeem");
+// Redeem reward function
+async function handleRedeem() {
+  if (!currentQuiz || !currentUserId) {
+    showToast("No quiz loaded or user not logged in");
     return;
   }
-  rewardInfoBox.classList.remove("hidden");
-  showToast("Reward details shown", 2500);
+  
+  const needed = Number(currentQuiz.rewardAmount || 0);
+  const have = parseFloat(balancePill.textContent) || 0;
+  
+  if (have < needed) {
+    showToast(`Not enough points! Need ${needed}, have ${have.toFixed(1)}`);
+    return;
+  }
+  
+  redeemBtn.disabled = true;
+  redeemBtn.textContent = "Processing...";
+  redeemBtn.classList.add('loading');
+  
+  try {
+    const result = await directApiRequest('redeemReward', {
+      userId: currentUserId,
+      quizId: currentQuiz.quizId || quizIdInput.value.trim(),
+      rewardName: currentQuiz.rewardName || ""
+    });
+    
+    if (result.success) {
+      // Update balance after redemption
+      const newBalance = have - needed;
+      balancePill.textContent = newBalance.toFixed(1) + " pts";
+      
+      // Update user data in backend
+      await saveUserProgress(newBalance, parseFloat(reversalPill.textContent) || 0);
+      
+      // Show reward info
+      rewardInfoBox.textContent = result.message || `Successfully redeemed: ${currentQuiz.rewardName}`;
+      rewardInfoBox.classList.remove("hidden");
+      
+      showToast("Reward redeemed successfully!", "success", 3000);
+    } else {
+      showToast(result.error || "Failed to redeem reward");
+    }
+  } catch (err) {
+    console.error("Redeem error:", err);
+    showToast("Failed to redeem: " + err.message, "error", 4000);
+  } finally {
+    redeemBtn.disabled = false;
+    redeemBtn.textContent = "Redeem Reward";
+    redeemBtn.classList.remove('loading');
+  }
 }
 
-// Events
+// Event Listeners
 loginBtn.addEventListener("click", login);
 logoutBtn.addEventListener("click", logout);
 loadQuizBtn.addEventListener("click", loadQuiz);
@@ -507,8 +733,39 @@ submitQuizBtn.addEventListener("click", gradeQuiz);
 redeemBtn.addEventListener("click", handleRedeem);
 hamburger.addEventListener("click", () => appShell.classList.toggle("left-panel-collapsed"));
 
-// Init
+// Enter key support for inputs
+userIdInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") login();
+});
+passIdInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") login();
+});
+quizIdInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") loadQuiz();
+});
+
+// Add keypress listeners for quiz answer inputs dynamically
+document.addEventListener('keypress', function(e) {
+  if (e.target && e.target.id && e.target.id.startsWith('userQ') && e.key === 'Enter') {
+    gradeQuiz();
+  }
+});
+
+// Initialize
 logout();
+
+// Test API connection on load
+window.addEventListener('load', async () => {
+  try {
+    // Simple ping to check API
+    const result = await directApiRequest('ping');
+    if (result.success) {
+      console.log("API connection successful");
+    }
+  } catch (err) {
+    console.warn("API test failed (this is OK during development):", err);
+  }
+});
 </script>
 </body>
 </html>
