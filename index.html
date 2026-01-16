@@ -174,14 +174,14 @@
         <div id="loginPanel">
           <div class="field-group">
             <label class="field-label" for="userIdInput">UserID</label>
-            <input type="text" id="userIdInput" placeholder="demo" autocomplete="off" />
+            <input type="text" id="userIdInput" placeholder="m123" autocomplete="off" />
           </div>
           <div class="field-group">
             <label class="field-label" for="passIdInput">PassID</label>
-            <input type="password" id="passIdInput" placeholder="demo" autocomplete="off" />
+            <input type="password" id="passIdInput" placeholder="m123" autocomplete="off" />
           </div>
           <button id="loginBtn" class="btn-primary">Login</button>
-          <div class="mini-note">Use credentials from restdb "users" collection</div>
+          <div class="mini-note">Try m123 / m123 (case-sensitive)</div>
         </div>
         <div id="quizIdPanel" class="hidden">
           <div class="field-group" style="margin-top:8px;">
@@ -189,7 +189,7 @@
             <input type="text" id="quizIdInput" placeholder="demo01" autocomplete="off" />
           </div>
           <button id="loadQuizBtn" class="btn-primary">Load Quiz</button>
-          <div class="mini-note">Data loaded from restdb.io "quizzes"</div>
+          <div class="mini-note">Loaded from restdb.io</div>
         </div>
       </div>
 
@@ -222,10 +222,10 @@
 
 <script>
 // ────────────────────────────────────────────────
-// YOUR restdb.io SETTINGS
+// SETTINGS - USING FULL-ACCESS KEY (should bypass strict CORS issues)
 // ────────────────────────────────────────────────
 const RESTDB_URL    = "https://iml111-f101.restdb.io/rest/";
-const RESTDB_APIKEY = "6969b77d7ba9c9d5087848ba";
+const RESTDB_APIKEY = "497df992a420fd63af3a56ed699db0933b5a6";
 const USER_COLLECTION = "users";
 const QUIZ_COLLECTION = "quizzes";
 
@@ -235,7 +235,7 @@ let currentUserId  = null;
 let currentQuiz    = null;
 let earnedThisQuiz = 0;
 
-// DOM elements
+// DOM
 const toastEl           = document.getElementById("toast");
 const loginBtn          = document.getElementById("loginBtn");
 const logoutBtn         = document.getElementById("logoutBtn");
@@ -260,57 +260,51 @@ const rewardPanel       = document.getElementById("rewardPanel");
 const appShell          = document.getElementById("appShell");
 const hamburger         = document.getElementById("hamburger");
 
-function showToast(msg, duration = 2800) {
+function showToast(msg, duration = 3000) {
   toastEl.textContent = msg;
   toastEl.classList.add("show");
   setTimeout(() => toastEl.classList.remove("show"), duration);
 }
 
 async function restdbFetch(endpoint, options = {}) {
-  // Append apikey to URL as query param to avoid custom header CORS issues
-  const separator = endpoint.includes('?') ? '&' : '?';
-  const url = RESTDB_URL + endpoint + separator + 'apikey=' + RESTDB_APIKEY;
-
-  // Headers - only Content-Type if needed (for PATCH with body)
-  const headers = {};
+  const url = RESTDB_URL + endpoint;
+  const headers = {
+    "x-apikey": RESTDB_APIKEY
+  };
   if (options.body) {
-    headers['Content-Type'] = 'application/json';
+    headers["Content-Type"] = "application/json";
   }
 
-  console.log("Fetching:", url, "Method:", options.method || 'GET');
+  console.log("Fetching:", url, "Method:", options.method || "GET");
 
   try {
     const res = await fetch(url, {
       ...options,
       headers,
-      mode: 'cors',
-      credentials: 'omit'
+      mode: "cors",
+      credentials: "omit"
     });
 
     if (!res.ok) {
-      let errorText = "No response body";
-      try {
-        errorText = await res.text();
-      } catch {}
-      throw new Error(`HTTP ${res.status} - ${errorText}`);
+      let errorText = "";
+      try { errorText = await res.text(); } catch {}
+      throw new Error(`HTTP ${res.status} - ${errorText || "no details"}`);
     }
 
     return await res.json();
   } catch (err) {
-    console.error("Fetch failed:", err);
+    console.error("Fetch error:", err);
     throw err;
   }
 }
 
-// ────────────────────────────────────────────────
 // Login
-// ────────────────────────────────────────────────
 async function login() {
   const userId = document.getElementById("userIdInput").value.trim();
   const passId = document.getElementById("passIdInput").value.trim();
 
   if (!userId || !passId) {
-    showToast("Please enter both UserID and PassID");
+    showToast("Enter UserID and PassID");
     return;
   }
 
@@ -323,7 +317,7 @@ async function login() {
     );
 
     if (users.length === 0) {
-      showToast("No matching user found");
+      showToast("Wrong credentials");
       return;
     }
 
@@ -332,9 +326,7 @@ async function login() {
     currentUserId = u._id;
 
     titleUser.textContent = currentUser;
-    if (u.logoUrl) {
-      titleUserLogo.style.backgroundImage = `url(${u.logoUrl})`;
-    }
+    if (u.logoUrl) titleUserLogo.style.backgroundImage = `url(${u.logoUrl})`;
 
     loginStatus.textContent = "Logged in";
     loginStatus.classList.add("pill-logged");
@@ -343,14 +335,14 @@ async function login() {
     logoutBtn.style.display = "inline-block";
 
     updateUIFromUser(u);
-    showToast("Login successful", 1800);
+    showToast("Logged in ✓", 1800);
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("Login failed:", err);
     let msg = "Login failed";
-    if (err.message.includes("401")) msg += " – invalid API key";
-    if (err.message.includes("403")) msg += " – permission denied (check CORS & API key settings)";
-    if (err.message.includes("Failed to fetch")) msg += " – network/CORS issue (try local file or local server)";
-    showToast(msg + " – see console (F12)", 5000);
+    if (err.message.includes("401")) msg += " – check API key";
+    if (err.message.includes("403")) msg += " – permissions issue";
+    if (err.message.includes("Failed to fetch")) msg += " – network/CORS (try local file)";
+    showToast(msg + " (see F12 console)", 5000);
   } finally {
     loginBtn.disabled = false;
     loginBtn.textContent = "Login";
@@ -360,13 +352,11 @@ async function login() {
 function updateUIFromUser(user) {
   const bal = Number(user.balance ?? 0);
   const rev = Number(user.reversal ?? 0);
-  balancePill.textContent  = bal.toFixed(1)  + " pts";
+  balancePill.textContent  = bal.toFixed(1) + " pts";
   reversalPill.textContent = rev.toFixed(1) + " %";
 }
 
-// ────────────────────────────────────────────────
 // Logout
-// ────────────────────────────────────────────────
 function logout() {
   currentUser = currentUserId = currentQuiz = null;
   earnedThisQuiz = 0;
@@ -385,13 +375,11 @@ function logout() {
   rewardInfoBox.classList.add("hidden");
 }
 
-// ────────────────────────────────────────────────
 // Load Quiz
-// ────────────────────────────────────────────────
 async function loadQuiz() {
   const quizId = document.getElementById("quizIdInput").value.trim();
   if (!quizId) {
-    showToast("Please enter Quiz Access ID");
+    showToast("Enter Quiz Access ID");
     return;
   }
 
@@ -415,18 +403,18 @@ async function loadQuiz() {
     quizQuestions.innerHTML = "";
     submitQuizBtn.disabled = false;
 
-    const questions = [
-      { label: "Q1", text: currentQuiz.q1, id: "userQ1" },
-      { label: "Q2", text: currentQuiz.q2, id: "userQ2" },
-      { label: "Q3", text: currentQuiz.q3, id: "userQ3" }
+    const qs = [
+      { lbl:"Q1", txt:currentQuiz.q1, id:"userQ1" },
+      { lbl:"Q2", txt:currentQuiz.q2, id:"userQ2" },
+      { lbl:"Q3", txt:currentQuiz.q3, id:"userQ3" }
     ];
 
-    questions.forEach(q => {
-      if (!q.text) return;
+    qs.forEach(q => {
+      if (!q.txt) return;
       const div = document.createElement("div");
       div.className = "quiz-question";
       div.innerHTML = `
-        <div><span>${q.label}:</span> ${q.text}</div>
+        <div><span>${q.lbl}:</span> ${q.txt}</div>
         <div class="quiz-input"><input type="text" id="${q.id}" placeholder="Your answer" autocomplete="off" /></div>
       `;
       quizQuestions.appendChild(div);
@@ -439,20 +427,17 @@ async function loadQuiz() {
 
     quizPanel.classList.remove("hidden");
     rewardPanel.classList.remove("hidden");
-
     showToast("Quiz loaded", 1800);
   } catch (err) {
     console.error("Load quiz error:", err);
-    showToast("Failed to load quiz – check console", 4000);
+    showToast("Failed to load quiz – see console", 4000);
   } finally {
     loadQuizBtn.disabled = false;
     loadQuizBtn.textContent = "Load Quiz";
   }
 }
 
-// ────────────────────────────────────────────────
-// Grade quiz & save progress
-// ────────────────────────────────────────────────
+// Grade & Save
 function gradeQuiz() {
   if (!currentQuiz) return;
 
@@ -493,13 +478,11 @@ async function saveUserProgress(newBalance, newReversal) {
     showToast("Progress saved ✓", 1800);
   } catch (err) {
     console.error("Save failed:", err);
-    showToast("Could not save progress – see console", 4000);
+    showToast("Could not save – check console", 4000);
   }
 }
 
-// ────────────────────────────────────────────────
-// Redeem logic
-// ────────────────────────────────────────────────
+// Redeem
 function canRedeem() {
   if (!currentQuiz) return false;
   const needed = Number(currentQuiz.rewardAmount ?? 0);
@@ -509,16 +492,14 @@ function canRedeem() {
 
 function handleRedeem() {
   if (!canRedeem()) {
-    showToast("Not enough points to redeem this reward");
+    showToast("Not enough points to redeem");
     return;
   }
   rewardInfoBox.classList.remove("hidden");
-  showToast("Reward information displayed", 2500);
+  showToast("Reward details shown", 2500);
 }
 
-// ────────────────────────────────────────────────
-// Event listeners
-// ────────────────────────────────────────────────
+// Events
 loginBtn.addEventListener("click", login);
 logoutBtn.addEventListener("click", logout);
 loadQuizBtn.addEventListener("click", loadQuiz);
