@@ -1,626 +1,529 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta charset="UTF-8" />
 <title>Quiz Rewards Console</title>
-
 <style>
-:root {
-    --win-bg:        #c0c0c0;
-    --win-dark:      #808080;
-    --win-light:     #f0f0f0;
-    --win-blue:      #000080;
-    --win-blue-light:#1084d0;
-    --win-border:    #404040;
-    --win-text:      #000000;
-    --pill-green:    #d0ffd0;
-    --pill-red:      #ffd0d0;
-    --pill-blue:     #d0e0ff;
-    --danger:        #a04040;
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-    font-family: Tahoma, Arial, sans-serif;
-    background: #008080;
-    color: var(--win-text);
-    min-height: 100vh;
-    font-size: 13px;
-    line-height: 1.4;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.container {
-    max-width: 420px;
-    margin: 0 auto;
-    background: var(--win-bg);
-    border: 2px solid var(--win-dark);
-    box-shadow: 0 0 0 1px #fff inset, 3px 3px 8px rgba(0,0,0,0.5);
-}
-
-.title-bar {
-    background: linear-gradient(to right, #000080, #1084d0);
-    color: white;
-    padding: 6px 10px;
+  :root {
+    --xp-bg: #c0c0c0;
+    --xp-dark: #808080;
+    --xp-light: #f0f0f0;
+    --xp-blue: #0a246a;
+    --xp-accent: #0078d7;
+    --xp-border: #404040;
+    --xp-text: #000000;
+    --danger: #b00020;
+  }
+  * { box-sizing: border-box; font-family: "Tahoma", "Segoe UI", sans-serif; }
+  body {
+    margin: 0;
+    background: radial-gradient(circle at top left, #e0e0e0, #a0a0a0);
+    color: var(--xp-text);
+  }
+  .app-shell {
+    max-width: 960px;
+    margin: 20px auto;
+    border: 2px solid var(--xp-border);
+    background: var(--xp-bg);
+    box-shadow: 0 0 0 1px #ffffff inset, 0 0 12px rgba(0,0,0,0.4);
+  }
+  .title-bar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    font-weight: bold;
-    font-size: 13px;
-}
-
-.title-left { display: flex; align-items: center; gap: 8px; }
-
-.logo {
-    width: 20px;
-    height: 20px;
-    background: linear-gradient(135deg, cyan, magenta);
-    border: 1px solid white;
-    border-radius: 2px;
-}
-
-.status-bar {
-    background: #c0c0c0;
-    border-bottom: 1px solid #808080;
-    padding: 6px 10px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    justify-content: space-between;
+    background: linear-gradient(to right, #0a246a, #3a6ea5);
+    color: #ffffff;
+    padding: 4px 8px;
     font-size: 12px;
-}
-
-.status-pill {
-    padding: 2px 8px;
-    border-radius: 10px;
-    border: 1px solid #808080;
-    background: #e0e0e0;
-    min-width: 70px;
-    text-align: center;
-    font-weight: bold;
-}
-
-.pill-logged   { background: var(--pill-blue);   color: #000080; }
-.pill-balance  { background: var(--pill-green);  color: #006400; }
-.pill-reversal { background: var(--pill-red);    color: #800000; }
-
-.main-panel {
-    padding: 10px;
-    background: linear-gradient(to bottom, #f0f0f0, #d8d8d8);
-}
-
-.section-title {
-    font-weight: bold;
-    font-size: 14px;
-    margin-bottom: 8px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #808080;
-    color: #000080;
-}
-
-.field-row { margin-bottom: 12px; }
-
-.field-label {
-    font-size: 12px;
-    margin-bottom: 3px;
-    display: block;
-    font-weight: bold;
-}
-
-input[type="text"],
-input[type="password"] {
-    width: 100%;
-    padding: 8px 10px;
-    font-size: 15px;
-    border: 2px inset #ffffff;
-    background: white;
-    font-family: Tahoma, sans-serif;
-}
-
-button {
-    width: 100%;
-    padding: 10px;
-    margin: 8px 0;
-    font-size: 15px;
-    font-weight: bold;
-    border: 2px outset #c0c0c0;
-    background: linear-gradient(to bottom, #f0f0f0, #c0c0c0);
+  }
+  .title-left { display: flex; align-items: center; gap: 6px; }
+  .logo-box {
+    width: 18px; height: 18px;
+    background: linear-gradient(135deg, #00ffff, #ff00ff);
+    border-radius: 3px; border: 1px solid #ffffff;
+  }
+  .title-text { font-weight: bold; }
+  .title-right { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+  .user-logo {
+    width: 20px; height: 20px; border-radius: 3px;
+    border: 1px solid #ffffff; background-size: cover;
+    background-position: center; background-color: #444;
+  }
+  .hamburger { display: none; width: 20px; height: 16px; flex-direction: column; justify-content: space-between; cursor: pointer; }
+  .hamburger span { display: block; height: 3px; background: #ffffff; border-radius: 2px; }
+  .window-body { padding: 10px; background: linear-gradient(to bottom, #f4f4f4, #c0c0c0); }
+  .top-status-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #d4d4d4; border: 1px solid #ffffff;
+    box-shadow: 0 0 0 1px #808080 inset; padding: 4px 8px; font-size: 11px; margin-bottom: 8px;
+  }
+  .status-group { display: flex; align-items: center; gap: 10px; }
+  .status-label { font-weight: bold; }
+  .pill {
+    padding: 2px 6px; border-radius: 10px; border: 1px solid #808080;
+    background: #f8f8f8; min-width: 60px; text-align: center;
+  }
+  .pill-balance    { background: linear-gradient(to bottom, #e8ffe8, #b0e0b0); }
+  .pill-reversal   { background: linear-gradient(to bottom, #ffe8e8, #e0b0b0); }
+  .pill-logged     { background: linear-gradient(to bottom, #e8f0ff, #b0c4e0); }
+  .content-grid { display: grid; grid-template-columns: 260px 1fr; gap: 10px; }
+  .panel {
+    border: 1px solid #ffffff; box-shadow: 0 0 0 1px #808080 inset;
+    background: #dcdcdc; padding: 8px; font-size: 12px;
+  }
+  .panel-title {
+    font-weight: bold; margin-bottom: 6px; padding-bottom: 3px;
+    border-bottom: 1px solid #b0b0b0;
+  }
+  .field-group { margin-bottom: 6px; }
+  .field-label { display: block; font-size: 11px; margin-bottom: 2px; }
+  input[type="text"], input[type="password"] {
+    width: 100%; padding: 3px 4px; border: 1px solid #808080;
+    background: #ffffff; font-size: 12px;
+  }
+  button {
+    padding: 3px 10px; font-size: 12px;
+    border: 1px solid #404040; background: linear-gradient(to bottom, #f8f8f8, #c0c0c0);
     cursor: pointer;
-}
-
-button:active {
-    border-style: inset;
-    background: linear-gradient(to bottom, #c0c0c0, #f0f0f0);
-}
-
-.btn-primary {
-    background: linear-gradient(to bottom, #d0e8ff, #a0c8ff);
-    border-color: #000080;
-}
-
-.mini-note {
-    font-size: 11px;
-    color: #404040;
-    margin-top: 4px;
-}
-
-.quiz-item {
-    background: #e8e8e8;
-    border: 1px solid #909090;
-    padding: 10px;
-    margin: 10px 0;
-    border-radius: 4px;
-}
-
-.info {
-    font-size: 13px;
-    margin: 10px 0;
-    color: #000;
-}
-
-.reward-box {
-    background: #ffffe0;
-    border: 2px solid #c0a040;
-    padding: 12px;
-    margin: 12px 0;
-    border-radius: 4px;
-}
-
-.footer {
-    text-align: center;
-    font-size: 11px;
-    color: #404040;
-    padding: 10px;
-    border-top: 1px solid #909090;
-    background: #d0d0d0;
-}
-
-#toast {
-    position: fixed;
-    bottom: 16px;
-    left: 12px;
-    right: 12px;
-    background: rgba(0,0,0,0.85);
-    color: white;
-    padding: 12px 16px;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-    opacity: 0;
-    transform: translateY(20px);
-    transition: all 0.25s ease;
-    z-index: 1000;
-    text-align: center;
-    font-size: 14px;
-}
-
-#toast.show {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-.hidden { display: none !important; }
+  }
+  button:active { background: linear-gradient(to bottom, #c0c0c0, #f8f8f8); }
+  button[disabled] { opacity: 0.5; cursor: default; }
+  .btn-primary {
+    background: linear-gradient(to bottom, #ffffff, #d0e4ff);
+    border-color: #0a246a;
+  }
+  .btn-danger {
+    background: linear-gradient(to bottom, #ffe0e0, #ffb0b0);
+    border-color: #800000;
+  }
+  .mini-note { font-size: 10px; color: #333; }
+  .quiz-questions { margin-top: 6px; }
+  .quiz-question {
+    margin-bottom: 6px; padding: 4px; border-radius: 3px;
+    background: #f4f4f4; border: 1px solid #b0b0b0;
+  }
+  .quiz-question span { font-weight: bold; }
+  .quiz-input { margin-top: 3px; }
+  .info-line { font-size: 11px; margin-top: 4px; }
+  .reward-info-box {
+    margin-top: 6px; padding: 4px; border-radius: 3px;
+    background: #fffbe8; border: 1px solid #c0a000; font-size: 11px;
+  }
+  .footer-bar {
+    margin-top: 8px; font-size: 10px; text-align: right; color: #333;
+  }
+  .hidden { display: none !important; }
+  .toast {
+    position: fixed; bottom: 12px; left: 12px;
+    background: var(--danger); color: #ffffff;
+    padding: 8px 12px; border-radius: 4px; font-size: 11px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    opacity: 0; pointer-events: none;
+    transform: translateY(10px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 9999;
+  }
+  .toast.show {
+    opacity: 1; pointer-events: auto; transform: translateY(0);
+  }
+  @media (max-width: 720px) {
+    .app-shell { margin: 5px; }
+    .content-grid { grid-template-columns: 1fr; }
+    .hamburger { display: flex; }
+    .left-panel-collapsed .left-panel { display: none; }
+    .toast { left: 50%; transform: translate(-50%, 10px); }
+    .toast.show { transform: translate(-50%, 0); }
+  }
 </style>
 </head>
 <body>
 
-<div class="container">
+<div class="app-shell" id="appShell">
+  <div class="title-bar">
+    <div class="title-left">
+      <div class="logo-box"></div>
+      <div class="title-text">Quiz Rewards Console</div>
+    </div>
+    <div class="title-right">
+      <div id="titleUser" class="mini-user">Guest</div>
+      <div id="titleUserLogo" class="user-logo"></div>
+      <div class="hamburger" id="hamburger">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
 
-    <div class="title-bar">
-        <div class="title-left">
-            <div class="logo"></div>
-            <div>Quiz Rewards Console</div>
-        </div>
-        <div id="titleUser">Guest</div>
+  <div class="window-body">
+    <div class="top-status-bar">
+      <div class="status-group">
+        <span class="status-label">Session:</span>
+        <span id="loginStatus" class="pill pill-logged">Logged out</span>
+        <button id="logoutBtn" class="btn-danger" style="display:none;">Logout</button>
+      </div>
+      <div class="status-group">
+        <span class="status-label">Balance:</span>
+        <span id="balancePill" class="pill pill-balance">0.0 pts</span>
+        <span class="status-label">Reversal:</span>
+        <span id="reversalPill" class="pill pill-reversal">0.0 %</span>
+      </div>
     </div>
 
-    <div class="status-bar">
-        <div class="status-pill pill-logged" id="sessionPill">Logged out</div>
-        <div class="status-pill pill-balance" id="balancePill">0.0 pts</div>
-        <div class="status-pill pill-reversal" id="reversalPill">0.0 %</div>
+    <div class="content-grid">
+      <div class="panel left-panel">
+        <div class="panel-title">LOGIN | Quiz Access</div>
+        <div id="loginPanel">
+          <div class="field-group">
+            <label class="field-label" for="userIdInput">UserID</label>
+            <input type="text" id="userIdInput" placeholder="demo" autocomplete="off" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="passIdInput">PassID</label>
+            <input type="password" id="passIdInput" placeholder="demo" autocomplete="off" />
+          </div>
+          <button id="loginBtn" class="btn-primary">Login</button>
+          <div class="mini-note">Use credentials from restdb "users" collection</div>
+        </div>
+        <div id="quizIdPanel" class="hidden">
+          <div class="field-group" style="margin-top:8px;">
+            <label class="field-label" for="quizIdInput">Quiz Access ID</label>
+            <input type="text" id="quizIdInput" placeholder="demo01" autocomplete="off" />
+          </div>
+          <button id="loadQuizBtn" class="btn-primary">Load Quiz</button>
+          <div class="mini-note">Data loaded from restdb.io "quizzes"</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Dashboard | Quiz | Reward</div>
+        <div id="quizPanel" class="hidden">
+          <div id="quizMeta" class="info-line"></div>
+          <div class="quiz-questions" id="quizQuestions"></div>
+          <button id="submitQuizBtn" class="btn-primary" disabled>Submit Answers</button>
+          <div id="quizResult" class="info-line"></div>
+        </div>
+        <div id="rewardPanel" class="hidden">
+          <div class="info-line">
+            <strong>Reward:</strong> <span id="rewardNameLabel"></span> |
+            <strong>Amount:</strong> <span id="rewardAmountLabel"></span>
+          </div>
+          <button id="redeemBtn" class="btn-primary">Redeem Reward</button>
+          <div id="rewardInfoBox" class="reward-info-box hidden"></div>
+        </div>
+      </div>
     </div>
 
-    <div class="main-panel">
-
-        <div id="loginSection">
-            <div class="section-title">Login / Quiz Access</div>
-            
-            <div class="field-row">
-                <div class="field-label">UserID</div>
-                <input type="text" id="userIdInput" value="matvei" autocomplete="off">
-            </div>
-
-            <div class="field-row">
-                <div class="field-label">PassID</div>
-                <input type="password" id="passIdInput" value="matvei">
-            </div>
-
-            <button class="btn-primary" id="loginBtn">Login</button>
-            <div class="mini-note">Default: matvei / matvei</div>
-        </div>
-
-        <div id="quizAccessSection" class="hidden">
-            <div class="section-title">Quiz Access</div>
-            <div class="field-row">
-                <div class="field-label">Quiz ID</div>
-                <input type="text" id="quizIdInput" value="matvei01">
-            </div>
-            <button id="loadQuizBtn">Load Quiz</button>
-        </div>
-
-        <div id="bonusSection" class="hidden">
-            <div class="section-title">Bonus Code</div>
-            <div class="field-row">
-                <input type="text" id="bonusCodeInput" placeholder="Enter code" style="text-transform:uppercase;">
-            </div>
-            <button id="redeemBonusBtn">Redeem</button>
-        </div>
-
-        <div id="quizSection" class="hidden">
-            <div class="section-title">Quiz</div>
-            <div id="quizMeta" class="info"></div>
-            <div id="quizQuestions"></div>
-            <button id="submitQuizBtn" disabled>Submit Quiz</button>
-            <div id="quizResult" class="info"></div>
-        </div>
-
-        <div id="rewardSection" class="hidden">
-            <div class="section-title">Reward</div>
-            <div class="info">
-                Amount: <strong><span id="rewardAmount">0</span> pts</strong>
-            </div>
-            <button id="claimRewardBtn">Claim</button>
-            <div id="rewardMessage" class="reward-box hidden"></div>
-        </div>
-
-        <div class="info">
-            <strong>Status:</strong> <span id="statusText">Waiting...</span>
-        </div>
-
+    <div class="footer-bar">
+      Reversal % = (1 − (Earned / Total)) × 100        Example: 1/3 of 250 = 83.3 pts
     </div>
-
-    <div class="footer">
-        Reversal % = (1 - (Earned / Total)) × 100
-    </div>
-
+  </div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" class="toast"></div>
 
 <script>
 // ────────────────────────────────────────────────
-// Your Google Apps Script URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbzfuU5kqyTwmO-TKNnw4UWn0AALKPAHa78dUQWh5XwPRZaOhI_CDrWyUMx2Et6yxhDF/exec';
+// YOUR restdb.io SETTINGS
+// ────────────────────────────────────────────────
+const RESTDB_URL    = "https://iml111-f101.restdb.io/rest/";
+const RESTDB_APIKEY = "6969b77d7ba9c9d5087848ba";
+const USER_COLLECTION = "users";
+const QUIZ_COLLECTION = "quizzes";
 
-let currentUser = null;
-let currentQuiz = null;
-let earnedThisSession = 0;
-let quizAnswers = {};
+// State
+let currentUser    = null;
+let currentUserId  = null;
+let currentQuiz    = null;
+let earnedThisQuiz = 0;
 
-const els = {
-    titleUser      : document.getElementById('titleUser'),
-    sessionPill    : document.getElementById('sessionPill'),
-    balancePill    : document.getElementById('balancePill'),
-    reversalPill   : document.getElementById('reversalPill'),
-    statusText     : document.getElementById('statusText'),
-    loginBtn       : document.getElementById('loginBtn'),
-    loadQuizBtn    : document.getElementById('loadQuizBtn'),
-    submitQuizBtn  : document.getElementById('submitQuizBtn'),
-    claimRewardBtn : document.getElementById('claimRewardBtn'),
-    redeemBonusBtn : document.getElementById('redeemBonusBtn'),
-    quizQuestions  : document.getElementById('quizQuestions'),
-    quizMeta       : document.getElementById('quizMeta'),
-    quizResult     : document.getElementById('quizResult'),
-    rewardAmount   : document.getElementById('rewardAmount'),
-    rewardMessage  : document.getElementById('rewardMessage'),
-    toast          : document.getElementById('toast')
-};
+// DOM elements
+const toastEl           = document.getElementById("toast");
+const loginBtn          = document.getElementById("loginBtn");
+const logoutBtn         = document.getElementById("logoutBtn");
+const loadQuizBtn       = document.getElementById("loadQuizBtn");
+const submitQuizBtn     = document.getElementById("submitQuizBtn");
+const redeemBtn         = document.getElementById("redeemBtn");
+const loginStatus       = document.getElementById("loginStatus");
+const balancePill       = document.getElementById("balancePill");
+const reversalPill      = document.getElementById("reversalPill");
+const titleUser         = document.getElementById("titleUser");
+const titleUserLogo     = document.getElementById("titleUserLogo");
+const quizMeta          = document.getElementById("quizMeta");
+const quizQuestions     = document.getElementById("quizQuestions");
+const quizResult        = document.getElementById("quizResult");
+const rewardNameLabel   = document.getElementById("rewardNameLabel");
+const rewardAmountLabel = document.getElementById("rewardAmountLabel");
+const rewardInfoBox     = document.getElementById("rewardInfoBox");
+const loginPanel        = document.getElementById("loginPanel");
+const quizIdPanel       = document.getElementById("quizIdPanel");
+const quizPanel         = document.getElementById("quizPanel");
+const rewardPanel       = document.getElementById("rewardPanel");
+const appShell          = document.getElementById("appShell");
+const hamburger         = document.getElementById("hamburger");
 
-function showToast(msg, error = false) {
-    els.toast.textContent = msg;
-    els.toast.style.background = error ? '#800000' : '#004080';
-    els.toast.classList.add('show');
-    setTimeout(() => els.toast.classList.remove('show'), 2800);
+function showToast(msg, duration = 2800) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  setTimeout(() => toastEl.classList.remove("show"), duration);
 }
 
-function updateReversal(earned = 0, total = 1000) {
-    const perc = total > 0 ? Math.max(0, ((1 - earned/total)*100)).toFixed(1) : 0;
-    els.reversalPill.textContent = perc + " %";
-    
-    // Update pill color based on percentage
-    const reversalValue = parseFloat(perc);
-    if (reversalValue >= 50) {
-        els.reversalPill.className = "status-pill pill-reversal";
-    } else if (reversalValue > 0) {
-        els.reversalPill.className = "status-pill pill-blue";
-    } else {
-        els.reversalPill.className = "status-pill pill-green";
+async function restdbFetch(endpoint, options = {}) {
+  const url = RESTDB_URL + endpoint;
+  const headers = {
+    "x-apikey": RESTDB_APIKEY,
+    "Content-Type": "application/json"
+  };
+
+  console.log("Fetching:", url);
+
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers,
+      mode: 'cors',
+      credentials: 'omit'
+    });
+
+    if (!res.ok) {
+      let errorText = "No response body";
+      try {
+        errorText = await res.text();
+      } catch {}
+      throw new Error(`HTTP ${res.status} - ${errorText}`);
     }
+
+    return await res.json();
+  } catch (err) {
+    console.error("Fetch failed:", err.message);
+    throw err;
+  }
 }
 
-async function apiCall(action, payload = {}) {
-    try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            redirect: 'follow',
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8'
-            },
-            body: JSON.stringify({ action, ...payload })
-        });
+// ────────────────────────────────────────────────
+// Login
+// ────────────────────────────────────────────────
+async function login() {
+  const userId = document.getElementById("userIdInput").value.trim();
+  const passId = document.getElementById("passIdInput").value.trim();
 
-        if (!response.ok) {
-            const text = await response.text();
-            console.error("API Error Response:", text);
-            throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
-        }
+  if (!userId || !passId) {
+    showToast("Please enter both UserID and PassID");
+    return;
+  }
 
-        const data = await response.json();
-        console.log(`API ${action} response:`, data);
-        return data;
-    } catch (e) {
-        console.error("API Call Error:", e);
-        showToast("Connection failed: " + (e.message || "Unknown error"), true);
-        return { success: false, message: e.message };
+  loginBtn.disabled = true;
+  loginBtn.textContent = "Logging in...";
+
+  try {
+    const users = await restdbFetch(
+      `${USER_COLLECTION}?q={"userId":"${encodeURIComponent(userId)}","passId":"${encodeURIComponent(passId)}"}&max=1`
+    );
+
+    if (users.length === 0) {
+      showToast("No matching user found");
+      return;
     }
+
+    const u = users[0];
+    currentUser   = u.userId;
+    currentUserId = u._id;
+
+    titleUser.textContent = currentUser;
+    if (u.logoUrl) {
+      titleUserLogo.style.backgroundImage = `url(${u.logoUrl})`;
+    }
+
+    loginStatus.textContent = "Logged in";
+    loginStatus.classList.add("pill-logged");
+    loginPanel.classList.add("hidden");
+    quizIdPanel.classList.remove("hidden");
+    logoutBtn.style.display = "inline-block";
+
+    updateUIFromUser(u);
+    showToast("Login successful", 1800);
+  } catch (err) {
+    console.error("Login error:", err);
+    let msg = "Login failed";
+    if (err.message.includes("401")) msg += " – invalid API key";
+    if (err.message.includes("403")) msg += " – permission denied (check CORS & API key settings)";
+    if (err.message.includes("Failed to fetch")) msg += " – network/CORS issue (try opening file directly)";
+    showToast(msg + " – see console (F12)", 5000);
+  } finally {
+    loginBtn.disabled = false;
+    loginBtn.textContent = "Login";
+  }
 }
 
-// ─── Login ──────────────────────────────────────────────
-els.loginBtn.addEventListener('click', async () => {
-    const uid = document.getElementById('userIdInput').value.trim();
-    const pwd = document.getElementById('passIdInput').value.trim();
-    if (!uid || !pwd) return showToast("Enter UserID and PassID", true);
+function updateUIFromUser(user) {
+  const bal = Number(user.balance ?? 0);
+  const rev = Number(user.reversal ?? 0);
+  balancePill.textContent  = bal.toFixed(1)  + " pts";
+  reversalPill.textContent = rev.toFixed(1) + " %";
+}
 
-    els.statusText.textContent = "Logging in...";
-    const r = await apiCall('login', { userid: uid, passid: pwd });
-    
-    if (r.success) {
-        currentUser = r.user;
-        els.titleUser.textContent = r.user.userid;
-        els.sessionPill.textContent = "Logged in";
-        els.sessionPill.className = "status-pill pill-logged";
-        els.balancePill.textContent = Number(r.user.balance || 0).toFixed(1) + " pts";
-        
-        // Make sure lifetime_possible has a reasonable default
-        const lifetimeEarned = Number(r.user.lifetime_earned || 0);
-        const lifetimePossible = Number(r.user.lifetime_possible || 1000);
-        updateReversal(lifetimeEarned, lifetimePossible);
+// ────────────────────────────────────────────────
+// Logout
+// ────────────────────────────────────────────────
+function logout() {
+  currentUser = currentUserId = currentQuiz = null;
+  earnedThisQuiz = 0;
+  titleUser.textContent = "Guest";
+  titleUserLogo.style.backgroundImage = "none";
+  balancePill.textContent = "0.0 pts";
+  reversalPill.textContent = "0.0 %";
+  loginStatus.textContent = "Logged out";
+  loginPanel.classList.remove("hidden");
+  quizIdPanel.classList.add("hidden");
+  quizPanel.classList.add("hidden");
+  rewardPanel.classList.add("hidden");
+  logoutBtn.style.display = "none";
+  quizQuestions.innerHTML = "";
+  quizResult.textContent = "";
+  rewardInfoBox.classList.add("hidden");
+}
 
-        document.getElementById('loginSection').classList.add('hidden');
-        document.getElementById('quizAccessSection').classList.remove('hidden');
-        document.getElementById('bonusSection').classList.remove('hidden');
-        showToast("Logged in successfully");
-        els.statusText.textContent = "Ready to load quiz";
-    } else {
-        showToast(r.message || "Login failed", true);
-        els.statusText.textContent = "Login failed";
-    }
-});
+// ────────────────────────────────────────────────
+// Load Quiz
+// ────────────────────────────────────────────────
+async function loadQuiz() {
+  const quizId = document.getElementById("quizIdInput").value.trim();
+  if (!quizId) {
+    showToast("Please enter Quiz Access ID");
+    return;
+  }
 
-// ─── Load Quiz ──────────────────────────────────────────
-els.loadQuizBtn.addEventListener('click', async () => {
-    const code = document.getElementById('quizIdInput').value.trim();
-    if (!code) return showToast("Enter quiz ID", true);
+  loadQuizBtn.disabled = true;
+  loadQuizBtn.textContent = "Loading...";
 
-    els.statusText.textContent = "Loading quiz...";
-    const r = await apiCall('getQuiz', { quiz_access_id: code });
-    
-    if (!r.success) {
-        showToast(r.message || "Quiz not found", true);
-        els.statusText.textContent = "Quiz load failed";
-        return;
-    }
+  try {
+    const quizzes = await restdbFetch(
+      `${QUIZ_COLLECTION}?q={"quizId":"${encodeURIComponent(quizId)}"}&max=1`
+    );
 
-    currentQuiz = r.quiz;
-    console.log("Loaded quiz:", currentQuiz);
-    
-    // Check if quiz has questions and answers
-    if (!currentQuiz.q1 && !currentQuiz.q2 && !currentQuiz.q3) {
-        showToast("Quiz has no questions", true);
-        return;
+    if (quizzes.length === 0) {
+      showToast("Quiz not found");
+      return;
     }
 
-    els.quizMeta.innerHTML = `<strong>Reward:</strong> ${r.quiz.reward || 0} pts<br>
-                             <strong>Questions:</strong> 3`;
+    currentQuiz = quizzes[0];
 
-    let html = '';
-    for (let i = 1; i <= 3; i++) {
-        const q = r.quiz[`q${i}`];
-        const a = r.quiz[`a${i}`] || '';
-        
-        if (q) {
-            html += `
-            <div class="quiz-item">
-                <div><strong>Question ${i}</strong></div>
-                <div style="margin: 6px 0;">${q}</div>
-                <input type="text" class="quiz-input" data-q="${i}" 
-                       placeholder="Your answer..." 
-                       style="margin-top:6px;width:100%;padding:8px;">
-                <div style="font-size:11px;color:#666;margin-top:4px;display:none;" 
-                     class="correct-answer" data-q="${i}">
-                     Correct: ${a}
-                </div>
-            </div>`;
-        }
-    }
-    
-    els.quizQuestions.innerHTML = html;
-    document.getElementById('quizSection').classList.remove('hidden');
-    els.submitQuizBtn.disabled = false;
-    
-    showToast("Quiz loaded successfully");
-    els.statusText.textContent = "Answer questions and submit";
-});
+    quizMeta.textContent = `Reward: ${currentQuiz.rewardName ?? "—"} | Total: ${currentQuiz.rewardAmount ?? 0} pts`;
 
-// ─── Submit Quiz ────────────────────────────────────────
-els.submitQuizBtn.addEventListener('click', () => {
-    if (!currentQuiz) {
-        showToast("No quiz loaded", true);
-        return;
-    }
+    quizQuestions.innerHTML = "";
+    submitQuizBtn.disabled = false;
 
-    const inputs = document.querySelectorAll('.quiz-input');
-    let correct = 0, answered = 0, total = 0;
+    const questions = [
+      { label: "Q1", text: currentQuiz.q1, id: "userQ1" },
+      { label: "Q2", text: currentQuiz.q2, id: "userQ2" },
+      { label: "Q3", text: currentQuiz.q3, id: "userQ3" }
+    ];
 
-    // Show all correct answers (for debugging)
-    document.querySelectorAll('.correct-answer').forEach(el => {
-        el.style.display = 'block';
+    questions.forEach(q => {
+      if (!q.text) return;
+      const div = document.createElement("div");
+      div.className = "quiz-question";
+      div.innerHTML = `
+        <div><span>${q.label}:</span> ${q.text}</div>
+        <div class="quiz-input"><input type="text" id="${q.id}" placeholder="Your answer" autocomplete="off" /></div>
+      `;
+      quizQuestions.appendChild(div);
     });
 
-    inputs.forEach(el => {
-        const idx = el.dataset.q;
-        const expected = (currentQuiz[`a${idx}`] || '').trim().toLowerCase();
-        const val = el.value.trim().toLowerCase();
-        
-        if (expected) total++; // Count total questions that have answers
-        
-        if (val) {
-            answered++;
-            if (val === expected) {
-                correct++;
-                el.style.border = '2px solid #00aa00';
-            } else {
-                el.style.border = '2px solid #aa0000';
-            }
-        } else {
-            el.style.border = '2px solid #ffaa00';
-        }
+    rewardNameLabel.textContent   = currentQuiz.rewardName   ?? "—";
+    rewardAmountLabel.textContent = Number(currentQuiz.rewardAmount ?? 0).toFixed(1) + " pts";
+    rewardInfoBox.textContent     = currentQuiz.rewardInfo   ?? "";
+    rewardInfoBox.classList.add("hidden");
+
+    quizPanel.classList.remove("hidden");
+    rewardPanel.classList.remove("hidden");
+
+    showToast("Quiz loaded", 1800);
+  } catch (err) {
+    console.error("Load quiz error:", err);
+    showToast("Failed to load quiz – check console", 4000);
+  } finally {
+    loadQuizBtn.disabled = false;
+    loadQuizBtn.textContent = "Load Quiz";
+  }
+}
+
+// ────────────────────────────────────────────────
+// Grade quiz & save progress
+// ────────────────────────────────────────────────
+function gradeQuiz() {
+  if (!currentQuiz) return;
+
+  let correct = 0;
+  if (document.getElementById("userQ1")?.value.trim() === String(currentQuiz.a1 ?? "")) correct++;
+  if (document.getElementById("userQ2")?.value.trim() === String(currentQuiz.a2 ?? "")) correct++;
+  if (document.getElementById("userQ3")?.value.trim() === String(currentQuiz.a3 ?? "")) correct++;
+
+  const totalQ = 3;
+  const total  = Number(currentQuiz.rewardAmount ?? 0);
+  const perQ   = total / totalQ;
+  earnedThisQuiz = perQ * correct;
+
+  quizResult.textContent =
+    `Correct: ${correct}/${totalQ} | Earned: ${earnedThisQuiz.toFixed(1)} pts | Total possible: ${total.toFixed(1)} pts`;
+
+  const oldBal = Number(balancePill.textContent) || 0;
+  const newBal = oldBal + earnedThisQuiz;
+  const newRev = total > 0 ? (1 - (newBal / (newBal + total - earnedThisQuiz))) * 100 : 0;
+
+  balancePill.textContent  = newBal.toFixed(1)  + " pts";
+  reversalPill.textContent = newRev.toFixed(1) + " %";
+
+  saveUserProgress(newBal, newRev);
+}
+
+async function saveUserProgress(newBalance, newReversal) {
+  if (!currentUserId) return;
+
+  try {
+    await restdbFetch(`${USER_COLLECTION}/${currentUserId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        balance: newBalance,
+        reversal: newReversal
+      })
     });
+    showToast("Progress saved ✓", 1800);
+  } catch (err) {
+    console.error("Save failed:", err);
+    showToast("Could not save progress – see console", 4000);
+  }
+}
 
-    console.log(`Quiz results: ${correct} correct, ${answered} answered, ${total} total questions`);
+// ────────────────────────────────────────────────
+// Redeem logic
+// ────────────────────────────────────────────────
+function canRedeem() {
+  if (!currentQuiz) return false;
+  const needed = Number(currentQuiz.rewardAmount ?? 0);
+  const have   = Number(balancePill.textContent) || 0;
+  return have >= needed;
+}
 
-    const score = total > 0 ? correct / total : 0;
-    earnedThisSession = Math.round(score * (currentQuiz.reward || 0));
+function handleRedeem() {
+  if (!canRedeem()) {
+    showToast("Not enough points to redeem this reward");
+    return;
+  }
+  rewardInfoBox.classList.remove("hidden");
+  showToast("Reward information displayed", 2500);
+}
 
-    els.quizResult.innerHTML = `
-        <strong>Results:</strong><br>
-        Correct: ${correct}/${total}<br>
-        Score: ${Math.round(score * 100)}%<br>
-        <strong>Earned: +${earnedThisSession} pts</strong>`;
+// ────────────────────────────────────────────────
+// Event listeners
+// ────────────────────────────────────────────────
+loginBtn.addEventListener("click", login);
+logoutBtn.addEventListener("click", logout);
+loadQuizBtn.addEventListener("click", loadQuiz);
+submitQuizBtn.addEventListener("click", gradeQuiz);
+redeemBtn.addEventListener("click", handleRedeem);
+hamburger.addEventListener("click", () => appShell.classList.toggle("left-panel-collapsed"));
 
-    if (earnedThisSession > 0) {
-        els.rewardAmount.textContent = earnedThisSession;
-        document.getElementById('rewardSection').classList.remove('hidden');
-        els.statusText.textContent = `Ready to claim ${earnedThisSession} pts`;
-    } else {
-        showToast("No points earned", true);
-        els.statusText.textContent = "No points earned";
-    }
-    
-    showToast(`Earned ${earnedThisSession} pts`);
-});
-
-// ─── Claim Reward ───────────────────────────────────────
-els.claimRewardBtn.addEventListener('click', async () => {
-    if (earnedThisSession <= 0) {
-        showToast("No reward to claim", true);
-        return;
-    }
-
-    if (!currentUser) {
-        showToast("Not logged in", true);
-        return;
-    }
-
-    els.statusText.textContent = "Claiming reward...";
-    const r = await apiCall('claimReward', {
-        userid: currentUser.userid,
-        amount: earnedThisSession
-    });
-    
-    console.log("Claim reward response:", r);
-    
-    if (r.success) {
-        // Update user data from response
-        if (r.user) {
-            currentUser.balance = r.user.balance || currentUser.balance;
-            currentUser.lifetime_earned = r.user.lifetime_earned || currentUser.lifetime_earned;
-            currentUser.lifetime_possible = r.user.lifetime_possible || currentUser.lifetime_possible;
-        } else {
-            currentUser.balance = r.newBalance || currentUser.balance;
-            currentUser.lifetime_earned = r.newEarned || currentUser.lifetime_earned;
-        }
-
-        els.balancePill.textContent = Number(currentUser.balance).toFixed(1) + " pts";
-        
-        // Update reversal with current values
-        const lifetimeEarned = Number(currentUser.lifetime_earned || 0);
-        const lifetimePossible = Number(currentUser.lifetime_possible || 1000);
-        updateReversal(lifetimeEarned, lifetimePossible);
-
-        els.rewardMessage.textContent = `Success! +${earnedThisSession} pts added to your balance.`;
-        els.rewardMessage.classList.remove('hidden');
-        
-        showToast(`Reward of ${earnedThisSession} pts claimed!`);
-        els.statusText.textContent = "Reward claimed successfully";
-
-        // Reset for next quiz
-        earnedThisSession = 0;
-        setTimeout(() => {
-            document.getElementById('rewardSection').classList.add('hidden');
-            els.rewardMessage.classList.add('hidden');
-        }, 3000);
-    } else {
-        showToast(r.message || "Claim failed", true);
-        els.statusText.textContent = "Claim failed";
-    }
-});
-
-// ─── Redeem Bonus ───────────────────────────────────────
-els.redeemBonusBtn.addEventListener('click', async () => {
-    if (!currentUser) {
-        showToast("Please login first", true);
-        return;
-    }
-
-    const code = document.getElementById('bonusCodeInput').value.trim().toUpperCase();
-    if (!code) return showToast("Enter bonus code", true);
-
-    els.statusText.textContent = "Redeeming bonus...";
-    const r = await apiCall('redeemBonus', { 
-        userid: currentUser.userid, 
-        code: code 
-    });
-    
-    console.log("Redeem bonus response:", r);
-    
-    if (r.success) {
-        // Update user balance
-        currentUser.balance = r.newBalance || (currentUser.balance + (r.pointsAdded || 0));
-        els.balancePill.textContent = Number(currentUser.balance).toFixed(1) + " pts";
-        
-        // Update reversal if lifetime earned changed
-        if (r.newEarned !== undefined) {
-            currentUser.lifetime_earned = r.newEarned;
-            const lifetimeEarned = Number(currentUser.lifetime_earned || 0);
-            const lifetimePossible = Number(currentUser.lifetime_possible || 1000);
-            updateReversal(lifetimeEarned, lifetimePossible);
-        }
-        
-        showToast(`Bonus redeemed! +${r.pointsAdded || 0} pts added`);
-        els.statusText.textContent = "Bonus redeemed successfully";
-        
-        // Clear input
-        document.getElementById('bonusCodeInput').value = '';
-    } else {
-        showToast(r.message || "Cannot redeem bonus code", true);
-        els.statusText.textContent = "Bonus redemption failed";
-    }
-});
-
-// Add input event listeners to enable/disable buttons
-document.addEventListener('DOMContentLoaded', () => {
-    // Enable submit button when any quiz answer is entered
-    document.addEventListener('input', (e) => {
-        if (e.target.classList.contains('quiz-input')) {
-            els.submitQuizBtn.disabled = false;
-        }
-    });
-});
-
-// Initialize
-els.statusText.textContent = "Enter credentials and login";
-console.log("Quiz Rewards Console initialized");
+// Init
+logout();
 </script>
 </body>
 </html>
