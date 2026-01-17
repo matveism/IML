@@ -234,269 +234,154 @@
 
 <script>
 // ────────────────────────────────────────────────
-// SETTINGS - Google Apps Script API URL
+// SETTINGS
 // ────────────────────────────────────────────────
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx86cEIbGJACNmsbcRXsImCe0NbNW_09a1yrNnxl2onIWqLn7IryeSuAo4ir-3ylPdqyQ/exec";
 
 // State
-let currentUser    = null;
-let currentUserId  = null;
-let currentQuiz    = null;
-let earnedThisQuiz = 0;
+let currentUser     = null;
+let currentUserId   = null;
+let currentQuiz     = null;
 
 // DOM Elements
-const toastEl           = document.getElementById("toast");
+const toast             = document.getElementById("toast");
 const loginBtn          = document.getElementById("loginBtn");
+const signupBtn         = document.getElementById("signupBtn");     // ← add this button in HTML
 const logoutBtn         = document.getElementById("logoutBtn");
 const loadQuizBtn       = document.getElementById("loadQuizBtn");
 const submitQuizBtn     = document.getElementById("submitQuizBtn");
 const redeemBtn         = document.getElementById("redeemBtn");
+const redeemCodeInput   = document.getElementById("redeemCodeInput"); // ← add input in HTML
+
 const loginStatus       = document.getElementById("loginStatus");
 const balancePill       = document.getElementById("balancePill");
 const reversalPill      = document.getElementById("reversalPill");
 const titleUser         = document.getElementById("titleUser");
 const titleUserLogo     = document.getElementById("titleUserLogo");
+
 const quizMeta          = document.getElementById("quizMeta");
 const quizQuestions     = document.getElementById("quizQuestions");
 const quizResult        = document.getElementById("quizResult");
 const rewardNameLabel   = document.getElementById("rewardNameLabel");
 const rewardAmountLabel = document.getElementById("rewardAmountLabel");
 const rewardInfoBox     = document.getElementById("rewardInfoBox");
-const loginPanel        = document.getElementById("loginPanel");
-const quizIdPanel       = document.getElementById("quizIdPanel");
-const quizPanel         = document.getElementById("quizPanel");
-const rewardPanel       = document.getElementById("rewardPanel");
-const appShell          = document.getElementById("appShell");
-const hamburger         = document.getElementById("hamburger");
-const userIdInput       = document.getElementById("userIdInput");
-const passIdInput       = document.getElementById("passIdInput");
-const quizIdInput       = document.getElementById("quizIdInput");
 
-// Toast notification
-function showToast(msg, type = "error", duration = 3000) {
-  toastEl.textContent = msg;
-  toastEl.className = `toast ${type}`;
-  toastEl.classList.add("show");
-  setTimeout(() => toastEl.classList.remove("show"), duration);
+const loginPanel    = document.getElementById("loginPanel");
+const quizIdPanel   = document.getElementById("quizIdPanel");
+const quizPanel     = document.getElementById("quizPanel");
+const rewardPanel   = document.getElementById("rewardPanel");
+
+const userIdInput   = document.getElementById("userIdInput");
+const passIdInput   = document.getElementById("passIdInput");
+const quizIdInput   = document.getElementById("quizIdInput");
+
+// ────────────────────────────────────────────────
+// HELPERS
+// ────────────────────────────────────────────────
+function showToast(msg, type = "error", duration = 2800) {
+  toast.textContent = msg;
+  toast.className = `toast ${type} show`;
+  setTimeout(() => toast.classList.remove("show"), duration);
 }
 
-// Simple API request function for Google Apps Script
-async function apiRequest(action, data = {}) {
-  const url = APPS_SCRIPT_URL;
+async function apiRequest(action, payload = {}) {
   const formData = new URLSearchParams();
-  formData.append('action', action);
-  
-  // Add data to formData
-  Object.keys(data).forEach(key => {
-    formData.append(key, data[key]);
-  });
-  
+  formData.append("action", action);
+  for (const [k, v] of Object.entries(payload)) {
+    formData.append(k, v);
+  }
+
   try {
-    console.log(`API Request: ${action}`, data);
-    
-    // Google Apps Script web apps work better with POST and form data
-    const response = await fetch(url, {
-      method: 'POST',
-      mode: 'no-cors', // Important for Google Apps Script
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formData.toString()
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData
     });
-    
-    // Since we use no-cors, we can't read the response directly
-    // We'll use a different approach for each action
-    return await handleNoCorsResponse(action, data);
-    
-  } catch (err) {
-    console.error("API request failed:", err);
-    throw new Error(`Network error: ${err.message}`);
-  }
-}
 
-// Handle responses when using no-cors mode
-async function handleNoCorsResponse(action, data) {
-  // For Google Apps Script, we can use a GET request with parameters
-  const url = new URL(APPS_SCRIPT_URL);
-  url.searchParams.append('action', action);
-  
-  Object.keys(data).forEach(key => {
-    url.searchParams.append(key, data[key]);
-  });
-  
-  try {
-    // Try to fetch with GET (Google Apps Script handles both GET and POST)
-    const response = await fetch(url.toString());
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    
-    const text = await response.text();
-    console.log("Response text:", text);
-    
+    // Because no-cors → we cannot read body
+    // → we make second GET request to receive result
+    const getUrl = new URL(APPS_SCRIPT_URL);
+    getUrl.searchParams.set("action", "getLastResult");
+    const resultResp = await fetch(getUrl);
+    const text = await resultResp.text();
+
+    let json;
     try {
-      return JSON.parse(text);
-    } catch (e) {
-      // If response is not JSON, it might be HTML (the default GET response)
-      if (action === 'ping') {
-        return { success: true, message: "API is running" };
-      }
-      return { success: false, error: "Invalid response", raw: text };
+      json = JSON.parse(text);
+    } catch {
+      return { success: false, error: "Invalid response from server", raw: text };
     }
+
+    if (!json.success) {
+      throw new Error(json.error || "Server returned failure");
+    }
+    return json;
+
   } catch (err) {
-    console.error("GET request failed:", err);
-    // Return a mock response for testing
-    return getMockResponse(action, data);
+    console.error(`API ${action} failed:`, err);
+    showToast(`Network/Server error: ${err.message}`, "error", 4500);
+    return { success: false, error: err.message };
   }
 }
 
-// Mock responses for testing (remove when API is working)
-function getMockResponse(action, data) {
-  console.log("Using mock response for:", action);
-  
-  switch(action) {
-    case 'login':
-      if (data.userId === 'm123' && data.passId === 'm123') {
-        return {
-          success: true,
-          user: {
-            id: 'U001',
-            userId: 'm123',
-            balance: 100.5,
-            reversal: 15.2,
-            firstName: 'John',
-            lastName: 'Doe'
-          }
-        };
-      }
-      return { success: false, message: "Wrong credentials" };
-      
-    case 'getQuiz':
-      if (data.quizId === 'demo01') {
-        return {
-          success: true,
-          quiz: {
-            id: 'Q001',
-            quizId: 'demo01',
-            quizName: 'Basic Math Quiz',
-            q1: 'What is 2 + 2?',
-            a1: '4',
-            q2: 'What is the square root of 64?',
-            a2: '8',
-            q3: 'Solve for x: 3x + 7 = 16',
-            a3: '3',
-            rewardName: 'Math Master Badge',
-            rewardAmount: 250,
-            rewardInfo: 'This badge certifies you as a Math Master!'
-          }
-        };
-      }
-      return { success: false, message: "Quiz not found" };
-      
-    case 'submitQuiz':
-      return {
-        success: true,
-        earned: 83.3,
-        correct: 1,
-        totalQuestions: 3,
-        totalPoints: 250,
-        newBalance: 183.8,
-        newReversal: 66.7,
-        message: 'Quiz submitted! You earned 83.3 points'
-      };
-      
-    case 'updateUser':
-      return {
-        success: true,
-        message: "User updated successfully"
-      };
-      
-    case 'redeemReward':
-      return {
-        success: true,
-        redeemedAmount: 250,
-        newBalance: 0,
-        rewardName: 'Math Master Badge',
-        message: 'Successfully redeemed "Math Master Badge" for 250 points!'
-      };
-      
-    case 'ping':
-      return { success: true, message: "API is running" };
-      
-    default:
-      return { success: false, message: "Unknown action" };
-  }
-}
-
-// Login function
+// ────────────────────────────────────────────────
+// AUTH
+// ────────────────────────────────────────────────
 async function login() {
-  const userId = userIdInput.value.trim();
-  const passId = passIdInput.value.trim();
-
-  if (!userId || !passId) {
-    showToast("Enter UserID and PassID");
-    return;
-  }
+  const uid = userIdInput.value.trim();
+  const pwd = passIdInput.value.trim();
+  if (!uid || !pwd) return showToast("Enter User ID and Password");
 
   loginBtn.disabled = true;
   loginBtn.textContent = "Logging in...";
-  loginBtn.classList.add('loading');
 
-  try {
-    const result = await apiRequest('login', { userId, passId });
-    
-    if (result.success && result.user) {
-      const u = result.user;
-      currentUser = u.userId;
-      currentUserId = u.id || u.userId;
-      
-      // Update UI
-      titleUser.textContent = currentUser;
-      if (u.logoUrl) {
-        titleUserLogo.style.backgroundImage = `url(${u.logoUrl})`;
-      }
-      
-      loginStatus.textContent = "Logged in";
-      loginStatus.classList.add("pill-logged");
-      loginPanel.classList.add("hidden");
-      quizIdPanel.classList.remove("hidden");
-      logoutBtn.style.display = "inline-block";
-      
-      // Update balance and reversal
-      updateUIFromUser(u);
-      showToast("Logged in successfully!", "success", 1800);
-      
-      // Auto-focus quiz ID input
-      setTimeout(() => quizIdInput.focus(), 100);
-    } else {
-      showToast(result.error || result.message || "Wrong credentials");
-    }
-  } catch (err) {
-    console.error("Login failed:", err);
-    showToast("Login failed: " + err.message, "error", 5000);
-  } finally {
-    loginBtn.disabled = false;
-    loginBtn.textContent = "Login";
-    loginBtn.classList.remove('loading');
+  const res = await apiRequest("login", { userId: uid, password: pwd });
+
+  loginBtn.disabled = false;
+  loginBtn.textContent = "Login";
+
+  if (!res.success) {
+    return showToast(res.error || "Login failed");
   }
+
+  currentUser   = res.user.userId;
+  currentUserId = res.user.id || res.user.userId;
+
+  titleUser.textContent = currentUser;
+  loginStatus.textContent = "Logged in";
+  loginStatus.classList.add("pill-logged-in");
+  loginPanel.classList.add("hidden");
+  quizIdPanel.classList.remove("hidden");
+  logoutBtn.style.display = "inline-block";
+
+  updateBalance(res.user.balance, res.user.reversal);
+  showToast("Logged in successfully", "success");
 }
 
-function updateUIFromUser(user) {
-  const bal = Number(user.balance || 0);
-  const rev = Number(user.reversal || 0);
-  balancePill.textContent = bal.toFixed(1) + " pts";
-  reversalPill.textContent = rev.toFixed(1) + " %";
+async function signup() {
+  const uid = userIdInput.value.trim();
+  const pwd = passIdInput.value.trim();
+  if (!uid || !pwd) return showToast("Enter desired User ID and Password");
+
+  signupBtn.disabled = true;
+  signupBtn.textContent = "Creating...";
+
+  const res = await apiRequest("signup", { userId: uid, password: pwd });
+
+  signupBtn.disabled = false;
+  signupBtn.textContent = "Sign Up";
+
+  if (!res.success) {
+    return showToast(res.error || "Signup failed – maybe ID already taken?");
+  }
+
+  showToast("Account created! You can now log in.", "success", 4000);
 }
 
-// Logout function
 function logout() {
   currentUser = currentUserId = currentQuiz = null;
-  earnedThisQuiz = 0;
-  
-  // Reset UI
   titleUser.textContent = "Guest";
-  titleUserLogo.style.backgroundImage = "none";
   balancePill.textContent = "0.0 pts";
   reversalPill.textContent = "0.0 %";
   loginStatus.textContent = "Logged out";
@@ -506,247 +391,146 @@ function logout() {
   rewardPanel.classList.add("hidden");
   logoutBtn.style.display = "none";
   quizQuestions.innerHTML = "";
-  quizResult.textContent = "";
-  rewardInfoBox.classList.add("hidden");
-  
-  // Clear inputs
-  userIdInput.value = "";
-  passIdInput.value = "";
-  quizIdInput.value = "";
-  
-  showToast("Logged out", "success", 1800);
+  quizResult.innerHTML = "";
+  showToast("Logged out", "success");
 }
 
-// Load quiz function
+function updateBalance(bal = 0, rev = 0) {
+  balancePill.textContent  = Number(bal).toFixed(1)  + " pts";
+  reversalPill.textContent = Number(rev).toFixed(1) + " %";
+}
+
+// ────────────────────────────────────────────────
+// QUIZ FLOW
+// ────────────────────────────────────────────────
 async function loadQuiz() {
-  const quizId = quizIdInput.value.trim();
-  if (!quizId) {
-    showToast("Enter Quiz Access ID");
-    return;
-  }
+  const qid = quizIdInput.value.trim();
+  if (!qid) return showToast("Enter Quiz ID");
 
   loadQuizBtn.disabled = true;
   loadQuizBtn.textContent = "Loading...";
-  loadQuizBtn.classList.add('loading');
 
-  try {
-    const result = await apiRequest('getQuiz', { quizId });
-    
-    if (result.success && result.quiz) {
-      currentQuiz = result.quiz;
-      
-      // Update quiz metadata
-      quizMeta.textContent = `Reward: ${currentQuiz.rewardName || "—"} | Total: ${currentQuiz.rewardAmount || 0} pts`;
-      
-      // Clear previous questions
-      quizQuestions.innerHTML = "";
-      submitQuizBtn.disabled = false;
-      
-      // Create question inputs (don't show answers to user)
-      const questions = [
-        { label: "Q1", text: currentQuiz.q1, id: "userQ1" },
-        { label: "Q2", text: currentQuiz.q2, id: "userQ2" },
-        { label: "Q3", text: currentQuiz.q3, id: "userQ3" }
-      ];
-      
-      questions.forEach(q => {
-        if (!q.text) return;
-        
-        const div = document.createElement("div");
-        div.className = "quiz-question";
-        div.innerHTML = `
-          <div><span>${q.label}:</span> ${q.text}</div>
-          <div class="quiz-input">
-            <input type="text" id="${q.id}" placeholder="Your answer" autocomplete="off" />
-          </div>
-        `;
-        quizQuestions.appendChild(div);
-      });
-      
-      // Update reward info
-      rewardNameLabel.textContent = currentQuiz.rewardName || "—";
-      rewardAmountLabel.textContent = Number(currentQuiz.rewardAmount || 0).toFixed(1) + " pts";
-      rewardInfoBox.textContent = currentQuiz.rewardInfo || "";
-      rewardInfoBox.classList.add("hidden");
-      
-      // Show panels
-      quizPanel.classList.remove("hidden");
-      rewardPanel.classList.remove("hidden");
-      
-      showToast("Quiz loaded successfully!", "success", 1800);
-      
-      // Auto-focus first question input
-      setTimeout(() => {
-        const firstInput = document.getElementById("userQ1");
-        if (firstInput) firstInput.focus();
-      }, 100);
-    } else {
-      showToast(result.error || result.message || "Quiz not found");
-    }
-  } catch (err) {
-    console.error("Load quiz error:", err);
-    showToast("Failed to load quiz: " + err.message, "error", 4000);
-  } finally {
-    loadQuizBtn.disabled = false;
-    loadQuizBtn.textContent = "Load Quiz";
-    loadQuizBtn.classList.remove('loading');
+  const res = await apiRequest("getQuiz", { quizId: qid });
+
+  loadQuizBtn.disabled = false;
+  loadQuizBtn.textContent = "Load Quiz";
+
+  if (!res.success) return showToast(res.error || "Quiz not found");
+
+  currentQuiz = res.quiz;
+
+  quizMeta.textContent = `Reward: ${currentQuiz.rewardName || "?"} | ${currentQuiz.rewardAmount || 0} pts`;
+
+  quizQuestions.innerHTML = "";
+  submitQuizBtn.disabled = false;
+
+  // Dynamically create inputs (supports any number of questions)
+  for (let i = 1; i <= 10; i++) {   // adjust max if needed
+    const qText = currentQuiz[`q${i}`];
+    if (!qText) break;
+
+    const div = document.createElement("div");
+    div.className = "quiz-question";
+    div.innerHTML = `
+      <div><strong>Q${i}:</strong> ${qText}</div>
+      <input type="text" id="userAns${i}" placeholder="Your answer" autocomplete="off" />
+    `;
+    quizQuestions.appendChild(div);
   }
+
+  rewardNameLabel.textContent   = currentQuiz.rewardName   || "—";
+  rewardAmountLabel.textContent = Number(currentQuiz.rewardAmount || 0).toFixed(1) + " pts";
+  rewardInfoBox.textContent     = currentQuiz.rewardInfo   || "";
+
+  quizPanel.classList.remove("hidden");
+  rewardPanel.classList.remove("hidden");
+  showToast("Quiz loaded", "success");
 }
 
-// Grade quiz function
-async function gradeQuiz() {
+async function submitQuiz() {
   if (!currentQuiz || !currentUser) return;
-  
-  // Disable submit button during processing
+
   submitQuizBtn.disabled = true;
-  submitQuizBtn.textContent = "Grading...";
-  submitQuizBtn.classList.add('loading');
-  
-  try {
-    // Collect user answers
-    const answers = {
-      q1: document.getElementById("userQ1")?.value.trim() || "",
-      q2: document.getElementById("userQ2")?.value.trim() || "",
-      q3: document.getElementById("userQ3")?.value.trim() || ""
-    };
-    
-    // Send to API for grading
-    const result = await apiRequest('submitQuiz', {
-      userId: currentUserId,
-      quizId: currentQuiz.quizId || quizIdInput.value.trim(),
-      answers: JSON.stringify(answers)
-    });
-    
-    if (result.success) {
-      // Update local state with results
-      earnedThisQuiz = Number(result.earned || 0);
-      const correct = Number(result.correct || 0);
-      const totalQ = Number(result.totalQuestions || 3);
-      const total = Number(currentQuiz.rewardAmount || 0);
-      
-      // Display results
-      quizResult.innerHTML = `
-        <strong>Results:</strong><br>
-        Correct: ${correct}/${totalQ}<br>
-        Earned: ${earnedThisQuiz.toFixed(1)} pts<br>
-        Total possible: ${total.toFixed(1)} pts
-      `;
-      
-      // Update balance and reversal from API response
-      if (result.newBalance !== undefined) {
-        balancePill.textContent = result.newBalance.toFixed(1) + " pts";
-      }
-      if (result.newReversal !== undefined) {
-        reversalPill.textContent = result.newReversal.toFixed(1) + " %";
-      }
-      
-      showToast(result.message || `Quiz submitted! Earned ${earnedThisQuiz.toFixed(1)} points`, "success", 3000);
-    } else {
-      showToast(result.error || result.message || "Failed to grade quiz");
-    }
-  } catch (err) {
-    console.error("Grade quiz error:", err);
-    showToast("Failed to submit quiz: " + err.message, "error", 4000);
-  } finally {
-    submitQuizBtn.disabled = false;
-    submitQuizBtn.textContent = "Submit Answers";
-    submitQuizBtn.classList.remove('loading');
+  submitQuizBtn.textContent = "Submitting...";
+
+  // Collect answers dynamically
+  const answers = {};
+  for (let i = 1; i <= 10; i++) {
+    const input = document.getElementById(`userAns${i}`);
+    if (!input) break;
+    answers[`a${i}`] = input.value.trim();
   }
+
+  const res = await apiRequest("submitQuiz", {
+    userId: currentUserId,
+    quizId: currentQuiz.quizId || quizIdInput.value.trim(),
+    answers: JSON.stringify(answers)
+  });
+
+  submitQuizBtn.disabled = false;
+  submitQuizBtn.textContent = "Submit Answers";
+
+  if (!res.success) {
+    return showToast(res.error || "Submission failed");
+  }
+
+  // Server already removed the quiz row and updated user points
+
+  quizResult.innerHTML = `
+    <strong>Result:</strong><br>
+    ${res.message || "Quiz completed!"}<br>
+    Earned: <b>${Number(res.earned || 0).toFixed(1)} pts</b><br>
+    New balance: <b>${Number(res.newBalance || 0).toFixed(1)} pts</b>
+  `;
+
+  updateBalance(res.newBalance, res.newReversal);
+  showToast("Quiz submitted – row removed from sheet", "success", 4000);
+
+  // Optional: disable further submissions
+  submitQuizBtn.disabled = true;
 }
 
-// Redeem reward function
-async function handleRedeem() {
-  if (!currentQuiz || !currentUserId) {
-    showToast("No quiz loaded or user not logged in");
-    return;
-  }
-  
-  const needed = Number(currentQuiz.rewardAmount || 0);
-  const have = parseFloat(balancePill.textContent) || 0;
-  
-  if (have < needed) {
-    showToast(`Not enough points! Need ${needed}, have ${have.toFixed(1)}`);
-    return;
-  }
-  
+// ────────────────────────────────────────────────
+// REDEEM BONUS CODE (separate feature)
+// ────────────────────────────────────────────────
+async function redeemCode() {
+  const code = redeemCodeInput?.value.trim();
+  if (!code) return showToast("Enter bonus code");
+
   redeemBtn.disabled = true;
-  redeemBtn.textContent = "Processing...";
-  redeemBtn.classList.add('loading');
-  
-  try {
-    const result = await apiRequest('redeemReward', {
-      userId: currentUserId,
-      quizId: currentQuiz.quizId || quizIdInput.value.trim(),
-      rewardName: currentQuiz.rewardName || ""
-    });
-    
-    if (result.success) {
-      // Update balance after redemption
-      if (result.newBalance !== undefined) {
-        balancePill.textContent = result.newBalance.toFixed(1) + " pts";
-      }
-      
-      // Show reward info
-      rewardInfoBox.textContent = result.message || `Successfully redeemed: ${currentQuiz.rewardName}`;
-      rewardInfoBox.classList.remove("hidden");
-      
-      showToast("Reward redeemed successfully!", "success", 3000);
-    } else {
-      showToast(result.error || result.message || "Failed to redeem reward");
-    }
-  } catch (err) {
-    console.error("Redeem error:", err);
-    showToast("Failed to redeem: " + err.message, "error", 4000);
-  } finally {
-    redeemBtn.disabled = false;
-    redeemBtn.textContent = "Redeem Reward";
-    redeemBtn.classList.remove('loading');
-  }
+  redeemBtn.textContent = "Redeeming...";
+
+  const res = await apiRequest("redeemCode", {
+    userId: currentUserId,
+    code
+  });
+
+  redeemBtn.disabled = false;
+  redeemBtn.textContent = "Redeem";
+
+  if (!res.success) return showToast(res.error || "Invalid / used code");
+
+  updateBalance(res.newBalance, res.newReversal);
+  showToast(`Success! ${res.amount} pts added`, "success");
 }
 
-// Event Listeners
+// ────────────────────────────────────────────────
+// EVENT LISTENERS
+// ────────────────────────────────────────────────
 loginBtn.addEventListener("click", login);
+signupBtn?.addEventListener("click", signup);
 logoutBtn.addEventListener("click", logout);
 loadQuizBtn.addEventListener("click", loadQuiz);
-submitQuizBtn.addEventListener("click", gradeQuiz);
-redeemBtn.addEventListener("click", handleRedeem);
-hamburger.addEventListener("click", () => appShell.classList.toggle("left-panel-collapsed"));
+submitQuizBtn.addEventListener("click", submitQuiz);
+redeemBtn?.addEventListener("click", redeemCode);
 
-// Enter key support for inputs
-userIdInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") login();
-});
-passIdInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") login();
-});
-quizIdInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") loadQuiz();
-});
+// Enter key support
+userIdInput.addEventListener("keypress", e => { if (e.key === "Enter") login(); });
+passIdInput.addEventListener("keypress", e => { if (e.key === "Enter") login(); });
+quizIdInput.addEventListener("keypress", e => { if (e.key === "Enter") loadQuiz(); });
 
-// Add keypress listeners for quiz answer inputs
-document.addEventListener('keypress', function(e) {
-  if (e.target && e.target.id && e.target.id.startsWith('userQ') && e.key === 'Enter') {
-    gradeQuiz();
-  }
-});
-
-// Initialize
+// Init
 logout();
-
-// Test API connection on load
-window.addEventListener('load', async () => {
-  try {
-    // Simple ping to check API
-    const result = await apiRequest('ping');
-    if (result.success) {
-      console.log("API connection successful");
-      showToast("Connected to server", "success", 2000);
-    }
-  } catch (err) {
-    console.warn("API test failed, using mock data:", err);
-    showToast("Using demo mode - server not reachable", "error", 3000);
-  }
-});
 </script>
 </body>
 </html>
