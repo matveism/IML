@@ -245,8 +245,8 @@
 <div id="toast" class="toast"></div>
 
 <script>
-// CONFIG
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbziffUlLgUP8jbifYKkXxHcw47VIbaYUC28JfG8L62cffMeVEZkIda5oSmup2hjibhc/exec";
+// CONFIG - REPLACE WITH YOUR ACTUAL APPS SCRIPT URL
+const APPS_SCRIPT_URL = "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
 
 // State
 let currentUser     = null;
@@ -291,55 +291,35 @@ function showToast(msg, type = "error", ms = 3200) {
   setTimeout(() => els.toast.classList.remove("show"), ms);
 }
 
-// FIXED apiCall – shows real errors + delay + logging
+// API call function
 async function apiCall(action, data = {}) {
   if (!action) {
     showToast("Client bug: no action", "error", 5000);
     return { success: false, error: "missing action" };
   }
 
-  const form = new URLSearchParams();
-  form.append("action", action);
-  for (const [k, v] of Object.entries(data)) {
-    if (v != null) form.append(k, v);
-  }
-
+  const url = APPS_SCRIPT_URL + `?action=${encodeURIComponent(action)}`;
+  
   try {
-    console.log(`→ POST ${action}`, [...form]);
-
-    await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      mode: "no-cors",
-      body: form
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams(data)
     });
-
-    // Wait – GAS needs time to write to PropertiesService
-    await new Promise(r => setTimeout(r, 900));
-
-    const url = new URL(APPS_SCRIPT_URL);
-    url.searchParams.set("action", "getLastResult");
-
-    console.log(`→ GET last result`);
-
-    const resp = await fetch(url, { cache: "no-store" });
-    const text = await resp.text();
-
-    console.log(`← raw response:`, text);
-
-    if (!text.trim()) throw new Error("empty response");
-
-    const json = JSON.parse(text);
-
-    if (!json.success && json.error) {
-      showToast(json.error, "error", 4500);
-      console.warn("Server returned error:", json.error);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-
-    return json;
-
+    
+    const result = await response.json();
+    return result;
+    
   } catch (err) {
     console.error(`${action} failed:`, err);
-    showToast(`Error: ${err.message}`, "error", 5000);
+    showToast(`Network error: ${err.message}`, "error", 5000);
     return { success: false, error: err.message };
   }
 }
@@ -359,7 +339,7 @@ async function handleLogin() {
   if (!res.success) return showToast(res.error || "Login failed");
 
   currentUser   = res.user.userId;
-  currentUserId = res.user.id || res.user.userId;
+  currentUserId = res.user.id;
 
   els.titleUser.textContent = currentUser;
   els.loginStatus.textContent = "Logged in";
@@ -368,7 +348,7 @@ async function handleLogin() {
   els.quizIdPanel.classList.remove("hidden");
   els.logoutBtn.style.display = "inline-block";
 
-  els.balancePill.textContent  = Number(res.user.balance  || 0).toFixed(1) + " pts";
+  els.balancePill.textContent  = Number(res.user.balance || 0).toFixed(1) + " pts";
   els.reversalPill.textContent = Number(res.user.reversal || 0).toFixed(1) + " %";
 
   showToast("Logged in!", "success");
@@ -380,16 +360,16 @@ async function handleSignup() {
   if (!uid || !pwd) return showToast("Enter UserID and Password");
 
   els.signupBtn.disabled = true; els.signupBtn.textContent = "Creating…";
-  let res = await apiCall("signup", { userId: uid, password: pwd });
+  const res = await apiCall("signup", { userId: uid, password: pwd });
   els.signupBtn.disabled = false; els.signupBtn.textContent = "Sign Up";
 
   if (!res.success) return showToast(res.error || "Signup failed");
 
   // Auto-login after signup
-  res = await apiCall("login", { userId: uid, password: pwd });
-  if (res.success) {
-    currentUser   = res.user.userId;
-    currentUserId = res.user.id || res.user.userId;
+  const loginRes = await apiCall("login", { userId: uid, password: pwd });
+  if (loginRes.success) {
+    currentUser   = loginRes.user.userId;
+    currentUserId = loginRes.user.id;
 
     els.titleUser.textContent = currentUser;
     els.loginStatus.textContent = "Logged in";
@@ -400,9 +380,9 @@ async function handleSignup() {
 
     els.balancePill.textContent  = "0.0 pts";
     els.reversalPill.textContent = "0.0 %";
+    
+    showToast("Account created & logged in!", "success", 4000);
   }
-
-  showToast("Account created & logged in!", "success", 4000);
 }
 
 function logout() {
@@ -503,6 +483,7 @@ async function submitQuiz() {
 async function redeemBonusCode() {
   const code = els.bonusCodeInput.value.trim();
   if (!code) return showToast("Enter bonus code");
+  if (!currentUserId) return showToast("Please login first");
 
   els.redeemCodeBtn.disabled = true; els.redeemCodeBtn.textContent = "Redeeming…";
   const res = await apiCall("redeemCode", { userId: currentUserId, code });
@@ -562,8 +543,9 @@ $("hamburger").addEventListener("click", () => {
   $("appShell").classList.toggle("left-panel-collapsed");
 });
 
-// Start
-logout();
+// Initialize
+els.balancePill.textContent = "0.0 pts";
+els.reversalPill.textContent = "0.0 %";
 </script>
 </body>
 </html>
