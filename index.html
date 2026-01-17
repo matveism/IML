@@ -236,17 +236,14 @@
         <div id="cashoutPanel" class="hidden" style="margin-top:12px;">
           <div style="border-top:1px solid #b0b0b0; padding-top:10px;">
             <div class="panel-title">Cashout Options</div>
-            <div id="cashoutOptions" class="info-line">Loading cashout options...</div>
-            <div style="margin-top:8px;">
-              <button id="loadCashoutBtn" class="btn-primary">Load Cashout Options</button>
-            </div>
+            <div id="cashoutOptions" class="info-line">Cashout options will appear when you accumulate enough points</div>
           </div>
         </div>
       </div>
     </div>
 
     <div class="footer-bar">
-      Reversal % = (1 − (Earned / Total possible)) × 100  •  Example: 83/250 → 66.8% reversal
+      Reversal % = (1 − (Earned / Total possible)) × 100 • Higher reversal means more room for improvement!
     </div>
   </div>
 </div>
@@ -258,38 +255,38 @@
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbziffUlLgUP8jbifYKkXxHcw47VIbaYUC28JfG8L62cffMeVEZkIda5oSmup2hjibhc/exec";
 
 // State
-let currentUser     = null;
-let currentUserId   = null;
-let currentQuiz     = null;
+let currentUser = null;
+let currentUserId = null;
+let currentQuiz = null;
+let userBalance = 0;
 
 // DOM cache
 const $ = id => document.getElementById(id);
 const els = {
-  toast:             $("toast"),
-  loginBtn:          $("loginBtn"),
-  signupBtn:         $("signupBtn"),
-  logoutBtn:         $("logoutBtn"),
-  loadQuizBtn:       $("loadQuizBtn"),
-  submitQuizBtn:     $("submitQuizBtn"),
-  redeemCodeBtn:     $("redeemCodeBtn"),
-  loadCashoutBtn:    $("loadCashoutBtn"),
-  titleUser:         $("titleUser"),
-  loginStatus:       $("loginStatus"),
-  balancePill:       $("balancePill"),
-  reversalPill:      $("reversalPill"),
-  loginPanel:        $("loginPanel"),
-  quizIdPanel:       $("quizIdPanel"),
-  quizPanel:         $("quizPanel"),
-  rewardPanel:       $("rewardPanel"),
-  cashoutPanel:      $("cashoutPanel"),
-  quizMeta:          $("quizMeta"),
-  quizQuestions:     $("quizQuestions"),
-  quizResult:        $("quizResult"),
-  cashoutOptions:    $("cashoutOptions"),
-  userIdInput:       $("userIdInput"),
-  passIdInput:       $("passIdInput"),
-  quizIdInput:       $("quizIdInput"),
-  bonusCodeInput:    $("bonusCodeInput")
+  toast: $("toast"),
+  loginBtn: $("loginBtn"),
+  signupBtn: $("signupBtn"),
+  logoutBtn: $("logoutBtn"),
+  loadQuizBtn: $("loadQuizBtn"),
+  submitQuizBtn: $("submitQuizBtn"),
+  redeemCodeBtn: $("redeemCodeBtn"),
+  titleUser: $("titleUser"),
+  loginStatus: $("loginStatus"),
+  balancePill: $("balancePill"),
+  reversalPill: $("reversalPill"),
+  loginPanel: $("loginPanel"),
+  quizIdPanel: $("quizIdPanel"),
+  quizPanel: $("quizPanel"),
+  rewardPanel: $("rewardPanel"),
+  cashoutPanel: $("cashoutPanel"),
+  quizMeta: $("quizMeta"),
+  quizQuestions: $("quizQuestions"),
+  quizResult: $("quizResult"),
+  cashoutOptions: $("cashoutOptions"),
+  userIdInput: $("userIdInput"),
+  passIdInput: $("passIdInput"),
+  quizIdInput: $("quizIdInput"),
+  bonusCodeInput: $("bonusCodeInput")
 };
 
 // Toast helper
@@ -315,8 +312,6 @@ async function apiCall(action, data = {}) {
     }
     const bodyString = bodyParts.join('&');
     
-    console.log(`Calling API: ${action}`, data);
-    
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -325,15 +320,13 @@ async function apiCall(action, data = {}) {
     });
     
     const text = await response.text();
-    console.log('Raw response:', text);
     
     try {
       const result = JSON.parse(text);
-      console.log('Parsed response:', result);
       return result;
     } catch (parseErr) {
       console.error('JSON parse error:', parseErr, 'Text:', text);
-      showToast('Server response error - check console', 'error', 5000);
+      showToast('Server response error', 'error', 5000);
       return { success: false, error: 'Invalid server response' };
     }
     
@@ -362,12 +355,12 @@ async function handleLogin() {
 
   if (!res.success) return showToast(res.error || "Login failed");
 
-  currentUser   = res.user.userId;
+  currentUser = res.user.userId;
   currentUserId = res.user.id;
+  userBalance = res.user.balance;
 
   els.titleUser.textContent = currentUser;
   els.loginStatus.textContent = "Logged in";
-  els.loginStatus.classList.add("pill-logged");
   els.loginPanel.classList.add("hidden");
   els.quizIdPanel.classList.remove("hidden");
   els.logoutBtn.style.display = "inline-block";
@@ -376,8 +369,8 @@ async function handleLogin() {
 
   showToast("Logged in!", "success");
   
-  // Load cashout options automatically
-  loadCashoutOptions();
+  // Check if we should show cashout
+  checkCashoutVisibility();
 }
 
 async function handleSignup() {
@@ -398,12 +391,12 @@ async function handleSignup() {
   // Auto-login after signup
   const loginRes = await apiCall("login", { userId: uid, password: pwd });
   if (loginRes.success) {
-    currentUser   = loginRes.user.userId;
+    currentUser = loginRes.user.userId;
     currentUserId = loginRes.user.id;
+    userBalance = 0;
 
     els.titleUser.textContent = currentUser;
     els.loginStatus.textContent = "Logged in";
-    els.loginStatus.classList.add("pill-logged");
     els.loginPanel.classList.add("hidden");
     els.quizIdPanel.classList.remove("hidden");
     els.logoutBtn.style.display = "inline-block";
@@ -412,13 +405,14 @@ async function handleSignup() {
     
     showToast("Account created & logged in!", "success", 4000);
     
-    // Load cashout options automatically
-    loadCashoutOptions();
+    // Hide cashout for new users
+    els.cashoutPanel.classList.add("hidden");
   }
 }
 
 function logout() {
   currentUser = currentUserId = currentQuiz = null;
+  userBalance = 0;
   els.titleUser.textContent = "Guest";
   updateBalanceDisplay(0, 0);
   els.loginStatus.textContent = "Logged out";
@@ -474,7 +468,6 @@ async function loadQuiz() {
 
   els.quizPanel.classList.remove("hidden");
   els.rewardPanel.classList.remove("hidden");
-  els.cashoutPanel.classList.remove("hidden");
   showToast("Quiz loaded!", "success");
 }
 
@@ -506,19 +499,35 @@ async function submitQuiz() {
   }
 
   els.quizResult.innerHTML = `
-    <strong>Result:</strong><br>
+    <strong>Quiz Submitted!</strong><br>
     ${res.message || "Completed"}<br>
     Correct: ${res.correct || 0}/${res.totalQuestions || 0}<br>
     Earned: <b>${Number(res.earned || 0).toFixed(1)} pts</b><br>
+    New reversal: <b>${Number(res.newReversal || 0).toFixed(1)}%</b><br>
     New balance: <b>${Number(res.newBalance || 0).toFixed(1)} pts</b>
   `;
 
+  userBalance = res.newBalance;
   updateBalanceDisplay(res.newBalance, res.newReversal);
-
-  showToast("Quiz submitted!", "success", 3500);
   
-  // Keep button disabled after successful submission
+  // Clear quiz input and fade out UI
+  els.quizIdInput.value = "";
+  els.quizPanel.style.opacity = "0.7";
+  els.quizPanel.style.transition = "opacity 1s";
+  
+  // Disable submit button
   els.submitQuizBtn.disabled = true;
+  els.submitQuizBtn.textContent = "Quiz Completed ✓";
+  
+  showToast("Quiz submitted successfully!", "success", 4000);
+  
+  // Check if we should show cashout options
+  checkCashoutVisibility();
+  
+  // Reload cashout options if panel is visible
+  if (!els.cashoutPanel.classList.contains("hidden")) {
+    loadCashoutOptions();
+  }
 }
 
 // ────────────────────────────────────────────────
@@ -542,37 +551,58 @@ async function redeemBonusCode() {
 
   if (!res.success) return showToast(res.error || "Invalid or already used code");
 
+  userBalance = res.newBalance;
   updateBalanceDisplay(res.newBalance, null);
   
   showToast(`Success! +${res.amount} pts`, "success", 4000);
   els.bonusCodeInput.value = "";
+  
+  // Check if we should show cashout
+  checkCashoutVisibility();
 }
 
 // ────────────────────────────────────────────────
 // CASHOUT
 // ────────────────────────────────────────────────
+function checkCashoutVisibility() {
+  // Only show cashout if user has at least 100 points
+  if (userBalance >= 100) {
+    els.cashoutPanel.classList.remove("hidden");
+    loadCashoutOptions();
+  } else {
+    els.cashoutPanel.classList.add("hidden");
+  }
+}
+
 async function loadCashoutOptions() {
-  els.loadCashoutBtn.disabled = true;
-  els.loadCashoutBtn.textContent = "Loading...";
-  
   const res = await apiCall("getCashoutOptions");
-  
-  els.loadCashoutBtn.disabled = false;
-  els.loadCashoutBtn.textContent = "Load Cashout Options";
   
   if (!res.success) {
     els.cashoutOptions.innerHTML = '<span style="color:#b00020;">Failed to load options</span>';
-    return showToast(res.error || "Failed to load cashout options");
-  }
-  
-  if (!res.cashoutOptions || res.cashoutOptions.length === 0) {
-    els.cashoutOptions.innerHTML = '<em>No cashout options available</em>';
     return;
   }
   
-  // Display cashout options
+  if (!res.cashoutOptions || res.cashoutOptions.length === 0) {
+    els.cashoutOptions.innerHTML = '<em>No cashout options available at this time</em>';
+    return;
+  }
+  
+  // Filter options user can afford
+  const affordableOptions = res.cashoutOptions.filter(option => 
+    Number(option.rewardAmount) <= userBalance
+  );
+  
+  if (affordableOptions.length === 0) {
+    els.cashoutOptions.innerHTML = `
+      <em>You need more points to cash out. Minimum required: ${Math.min(...res.cashoutOptions.map(o => o.rewardAmount))} pts</em><br>
+      <span style="font-size:10px; color:#444;">Current balance: ${userBalance} pts</span>
+    `;
+    return;
+  }
+  
+  // Display affordable cashout options
   els.cashoutOptions.innerHTML = '';
-  res.cashoutOptions.forEach(option => {
+  affordableOptions.forEach(option => {
     const div = document.createElement('div');
     div.className = 'cashout-item';
     div.innerHTML = `
@@ -586,27 +616,24 @@ async function loadCashoutOptions() {
     els.cashoutOptions.appendChild(div);
   });
   
-  // Add event listeners to all cashout buttons
+  // Add event listeners
   document.querySelectorAll('.cashout-redeem-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       handleCashout(btn.dataset.reward, btn.dataset.cost);
     });
   });
-  
-  showToast("Cashout options loaded", "success");
 }
 
 async function handleCashout(rewardName, cost) {
   if (!currentUser) return showToast("Please login first");
   
-  const have = Number(els.balancePill.textContent.replace(/[^0-9.]/g,"")) || 0;
   const needCost = Number(cost);
   
-  if (have < needCost) {
-    return showToast(`Need ${needCost} pts – have ${have.toFixed(1)}`);
+  if (userBalance < needCost) {
+    return showToast(`Need ${needCost} pts – have ${userBalance.toFixed(1)}`);
   }
   
-  if (!confirm(`Cashout "${rewardName}" for ${needCost} points?`)) return;
+  if (!confirm(`Cashout "${rewardName}" for ${needCost} points? This action cannot be undone.`)) return;
   
   const res = await apiCall("cashout", {
     userId: currentUser,
@@ -615,8 +642,14 @@ async function handleCashout(rewardName, cost) {
   
   if (!res.success) return showToast(res.error || "Cashout failed");
   
+  userBalance = res.newBalance;
   updateBalanceDisplay(res.newBalance, null);
-  showToast(res.message || "Cashout successful!", "success", 4000);
+  
+  showToast(res.message || "Cashout successful! Check your email for details.", "success", 5000);
+  
+  // Reload cashout options
+  loadCashoutOptions();
+  checkCashoutVisibility();
 }
 
 // ────────────────────────────────────────────────
@@ -640,7 +673,6 @@ els.logoutBtn.addEventListener("click", logout);
 els.loadQuizBtn.addEventListener("click", loadQuiz);
 els.submitQuizBtn.addEventListener("click", submitQuiz);
 els.redeemCodeBtn.addEventListener("click", redeemBonusCode);
-els.loadCashoutBtn.addEventListener("click", loadCashoutOptions);
 
 els.userIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
 els.passIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
