@@ -237,7 +237,7 @@
     </div>
 
     <div class="footer-bar">
-      Reversal % = (1 − (Earned / Total possible)) × 100  •  Example: 83/250 → 66.8% reversal
+      Reversal % = (1 − (Earned / Total possible)) × 100  •  Example: 83/250 → 66.8% reversal
     </div>
   </div>
 </div>
@@ -249,8 +249,8 @@
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbziffUlLgUP8jbifYKkXxHcw47VIbaYUC28JfG8L62cffMeVEZkIda5oSmup2hjibhc/exec";
 
 // State
-let currentUser     = null;
-let currentUserId   = null;
+let currentUser     = null;  // The userId string (e.g., "m123")
+let currentUserId   = null;  // The spreadsheet row ID
 let currentQuiz     = null;
 
 // DOM cache
@@ -298,28 +298,40 @@ async function apiCall(action, data = {}) {
     return { success: false, error: "missing action" };
   }
 
-  const url = APPS_SCRIPT_URL + `?action=${encodeURIComponent(action)}`;
-  
   try {
-    const response = await fetch(url, {
+    // Build URL-encoded string manually
+    const params = { action, ...data };
+    const bodyParts = [];
+    for (const key in params) {
+      bodyParts.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+    }
+    const bodyString = bodyParts.join('&');
+    
+    const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      mode: 'cors',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams(data)
+      body: bodyString,
+      redirect: 'follow'
     });
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    const text = await response.text();
+    console.log('Response text:', text);
     
-    const result = await response.json();
-    return result;
+    // Try to parse as JSON
+    try {
+      const result = JSON.parse(text);
+      return result;
+    } catch (parseErr) {
+      console.error('JSON parse error:', parseErr, 'Text:', text);
+      showToast('Server response error - check console', 'error', 5000);
+      return { success: false, error: 'Invalid server response' };
+    }
     
   } catch (err) {
     console.error(`${action} failed:`, err);
-    showToast(`Network error: ${err.message}`, "error", 5000);
+    showToast(`Connection failed. Check: 1) Apps Script URL is correct, 2) Script is deployed as web app, 3) Access set to "Anyone"`, "error", 6000);
     return { success: false, error: err.message };
   }
 }
@@ -332,14 +344,18 @@ async function handleLogin() {
   const pwd = els.passIdInput.value.trim();
   if (!uid || !pwd) return showToast("Enter UserID and Password");
 
-  els.loginBtn.disabled = true; els.loginBtn.textContent = "Logging in…";
+  els.loginBtn.disabled = true; 
+  els.loginBtn.textContent = "Logging in…";
+  
   const res = await apiCall("login", { userId: uid, password: pwd });
-  els.loginBtn.disabled = false; els.loginBtn.textContent = "Login";
+  
+  els.loginBtn.disabled = false; 
+  els.loginBtn.textContent = "Login";
 
   if (!res.success) return showToast(res.error || "Login failed");
 
-  currentUser   = res.user.userId;
-  currentUserId = res.user.id;
+  currentUser   = res.user.userId;  // Store the userId string
+  currentUserId = res.user.id;      // Store the row ID
 
   els.titleUser.textContent = currentUser;
   els.loginStatus.textContent = "Logged in";
@@ -348,8 +364,7 @@ async function handleLogin() {
   els.quizIdPanel.classList.remove("hidden");
   els.logoutBtn.style.display = "inline-block";
 
-  els.balancePill.textContent  = Number(res.user.balance || 0).toFixed(1) + " pts";
-  els.reversalPill.textContent = Number(res.user.reversal || 0).toFixed(1) + " %";
+  updateBalanceDisplay(res.user.balance, res.user.reversal);
 
   showToast("Logged in!", "success");
 }
@@ -359,9 +374,13 @@ async function handleSignup() {
   const pwd = els.passIdInput.value.trim();
   if (!uid || !pwd) return showToast("Enter UserID and Password");
 
-  els.signupBtn.disabled = true; els.signupBtn.textContent = "Creating…";
+  els.signupBtn.disabled = true; 
+  els.signupBtn.textContent = "Creating…";
+  
   const res = await apiCall("signup", { userId: uid, password: pwd });
-  els.signupBtn.disabled = false; els.signupBtn.textContent = "Sign Up";
+  
+  els.signupBtn.disabled = false; 
+  els.signupBtn.textContent = "Sign Up";
 
   if (!res.success) return showToast(res.error || "Signup failed");
 
@@ -378,8 +397,7 @@ async function handleSignup() {
     els.quizIdPanel.classList.remove("hidden");
     els.logoutBtn.style.display = "inline-block";
 
-    els.balancePill.textContent  = "0.0 pts";
-    els.reversalPill.textContent = "0.0 %";
+    updateBalanceDisplay(0, 0);
     
     showToast("Account created & logged in!", "success", 4000);
   }
@@ -388,8 +406,7 @@ async function handleSignup() {
 function logout() {
   currentUser = currentUserId = currentQuiz = null;
   els.titleUser.textContent = "Guest";
-  els.balancePill.textContent = "0.0 pts";
-  els.reversalPill.textContent = "0.0 %";
+  updateBalanceDisplay(0, 0);
   els.loginStatus.textContent = "Logged out";
   els.loginPanel.classList.remove("hidden");
   els.quizIdPanel.classList.add("hidden");
@@ -398,6 +415,10 @@ function logout() {
   els.logoutBtn.style.display = "none";
   els.quizQuestions.innerHTML = "";
   els.quizResult.innerHTML = "";
+  els.userIdInput.value = "";
+  els.passIdInput.value = "";
+  els.quizIdInput.value = "";
+  els.bonusCodeInput.value = "";
   showToast("Logged out", "success");
 }
 
@@ -408,9 +429,13 @@ async function loadQuiz() {
   const qid = els.quizIdInput.value.trim();
   if (!qid) return showToast("Enter Quiz ID");
 
-  els.loadQuizBtn.disabled = true; els.loadQuizBtn.textContent = "Loading…";
+  els.loadQuizBtn.disabled = true; 
+  els.loadQuizBtn.textContent = "Loading…";
+  
   const res = await apiCall("getQuiz", { quizId: qid });
-  els.loadQuizBtn.disabled = false; els.loadQuizBtn.textContent = "Load Quiz";
+  
+  els.loadQuizBtn.disabled = false; 
+  els.loadQuizBtn.textContent = "Load Quiz";
 
   if (!res.success) return showToast(res.error || "Quiz not found");
 
@@ -420,6 +445,7 @@ async function loadQuiz() {
 
   els.quizQuestions.innerHTML = "";
   els.submitQuizBtn.disabled = false;
+  els.quizResult.innerHTML = "";
 
   let i = 1;
   while (currentQuiz[`q${i}`]) {
@@ -442,9 +468,11 @@ async function loadQuiz() {
 }
 
 async function submitQuiz() {
-  if (!currentQuiz || !currentUserId) return showToast("No quiz or not logged in");
+  if (!currentQuiz) return showToast("No quiz loaded");
+  if (!currentUser) return showToast("Please login first");
 
-  els.submitQuizBtn.disabled = true; els.submitQuizBtn.textContent = "Submitting…";
+  els.submitQuizBtn.disabled = true; 
+  els.submitQuizBtn.textContent = "Submitting…";
 
   const answers = {};
   let i = 1;
@@ -454,14 +482,17 @@ async function submitQuiz() {
   }
 
   const res = await apiCall("submitQuiz", {
-    userId: currentUserId,
+    userId: currentUser,  // Send the userId string
     quizId: currentQuiz.quizId || els.quizIdInput.value.trim(),
     answers: JSON.stringify(answers)
   });
 
-  els.submitQuizBtn.disabled = false; els.submitQuizBtn.textContent = "Submit Answers";
+  els.submitQuizBtn.textContent = "Submit Answers";
 
-  if (!res.success) return showToast(res.error || "Submission failed");
+  if (!res.success) {
+    els.submitQuizBtn.disabled = false;
+    return showToast(res.error || "Submission failed");
+  }
 
   els.quizResult.innerHTML = `
     <strong>Result:</strong><br>
@@ -470,10 +501,11 @@ async function submitQuiz() {
     New balance: <b>${Number(res.newBalance || 0).toFixed(1)} pts</b>
   `;
 
-  els.balancePill.textContent  = Number(res.newBalance  || 0).toFixed(1) + " pts";
-  els.reversalPill.textContent = Number(res.newReversal || 0).toFixed(1) + " %";
+  updateBalanceDisplay(res.newBalance, res.newReversal);
 
   showToast("Quiz submitted!", "success", 3500);
+  
+  // Keep button disabled after successful submission
   els.submitQuizBtn.disabled = true;
 }
 
@@ -483,41 +515,67 @@ async function submitQuiz() {
 async function redeemBonusCode() {
   const code = els.bonusCodeInput.value.trim();
   if (!code) return showToast("Enter bonus code");
-  if (!currentUserId) return showToast("Please login first");
+  if (!currentUser) return showToast("Please login first");
 
-  els.redeemCodeBtn.disabled = true; els.redeemCodeBtn.textContent = "Redeeming…";
-  const res = await apiCall("redeemCode", { userId: currentUserId, code });
-  els.redeemCodeBtn.disabled = false; els.redeemCodeBtn.textContent = "Redeem Code";
+  els.redeemCodeBtn.disabled = true; 
+  els.redeemCodeBtn.textContent = "Redeeming…";
+  
+  const res = await apiCall("redeemCode", { 
+    userId: currentUser,  // Send the userId string (e.g., "m123")
+    code: code 
+  });
+  
+  els.redeemCodeBtn.disabled = false; 
+  els.redeemCodeBtn.textContent = "Redeem Code";
 
-  if (!res.success) return showToast(res.error || "Invalid/used code");
+  if (!res.success) return showToast(res.error || "Invalid or already used code");
 
-  els.balancePill.textContent = Number(res.newBalance || 0).toFixed(1) + " pts";
+  updateBalanceDisplay(res.newBalance, null);
+  
   showToast(`Success! +${res.amount} pts`, "success", 4000);
   els.bonusCodeInput.value = "";
 }
 
 async function redeemReward() {
-  if (!currentQuiz || !currentUserId) return showToast("No quiz loaded");
+  if (!currentQuiz) return showToast("No quiz loaded");
+  if (!currentUser) return showToast("Please login first");
 
   const cost = Number(currentQuiz.rewardAmount || 0);
   const have = Number(els.balancePill.textContent.replace(/[^0-9.]/g,"")) || 0;
 
   if (have < cost) return showToast(`Need ${cost} pts – have ${have.toFixed(1)}`);
 
-  els.redeemBtn.disabled = true; els.redeemBtn.textContent = "Processing…";
+  els.redeemBtn.disabled = true; 
+  els.redeemBtn.textContent = "Processing…";
+  
   const res = await apiCall("redeemReward", {
-    userId: currentUserId,
+    userId: currentUser,  // Send the userId string
     quizId: currentQuiz.quizId || els.quizIdInput.value.trim(),
     rewardName: currentQuiz.rewardName || "Reward"
   });
-  els.redeemBtn.disabled = false; els.redeemBtn.textContent = "Redeem Reward";
+  
+  els.redeemBtn.disabled = false; 
+  els.redeemBtn.textContent = "Redeem Reward";
 
   if (!res.success) return showToast(res.error || "Redemption failed");
 
-  els.balancePill.textContent = Number(res.newBalance || 0).toFixed(1) + " pts";
+  updateBalanceDisplay(res.newBalance, null);
+  
   els.rewardInfoBox.textContent = res.message || "Reward redeemed!";
   els.rewardInfoBox.classList.remove("hidden");
   showToast("Reward redeemed!", "success");
+}
+
+// ────────────────────────────────────────────────
+// HELPERS
+// ────────────────────────────────────────────────
+function updateBalanceDisplay(balance, reversal) {
+  if (balance !== null && balance !== undefined) {
+    els.balancePill.textContent = Number(balance).toFixed(1) + " pts";
+  }
+  if (reversal !== null && reversal !== undefined) {
+    els.reversalPill.textContent = Number(reversal).toFixed(1) + " %";
+  }
 }
 
 // ────────────────────────────────────────────────
@@ -534,6 +592,7 @@ els.redeemCodeBtn.addEventListener("click", redeemBonusCode);
 els.userIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
 els.passIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
 els.quizIdInput.onkeypress = e => { if (e.key === "Enter") loadQuiz(); };
+els.bonusCodeInput.onkeypress = e => { if (e.key === "Enter") redeemBonusCode(); };
 
 document.addEventListener("keypress", e => {
   if (e.key === "Enter" && e.target.id?.startsWith("ans")) submitQuiz();
@@ -544,8 +603,7 @@ $("hamburger").addEventListener("click", () => {
 });
 
 // Initialize
-els.balancePill.textContent = "0.0 pts";
-els.reversalPill.textContent = "0.0 %";
+updateBalanceDisplay(0, 0);
 </script>
 </body>
 </html>
