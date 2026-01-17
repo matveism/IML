@@ -117,6 +117,12 @@
     margin-top: 8px; padding: 6px; border-radius: 3px;
     background: #fffbe8; border: 1px solid #c0a000; font-size: 11px;
   }
+  .cashout-item {
+    margin: 8px 0; padding: 8px; border-radius: 3px;
+    background: #f0f8ff; border: 1px solid #4a90e2;
+  }
+  .cashout-item strong { color: #0a246a; }
+  .cashout-item button { margin-top: 6px; }
   .footer-bar {
     margin-top: 10px; font-size: 10px; text-align: right; color: #444;
   }
@@ -218,19 +224,22 @@
         </div>
 
         <div id="rewardPanel" class="hidden" style="margin-top:12px;">
-          <div class="info-line">
-            <strong>Reward:</strong> <span id="rewardNameLabel">—</span><br>
-            <strong>Value:</strong> <span id="rewardAmountLabel">—</span>
-          </div>
-          <button id="redeemBtn" class="btn-success">Redeem Reward</button>
-          <div id="rewardInfoBox" class="reward-info-box hidden"></div>
-
           <div style="margin-top:16px; border-top:1px solid #b0b0b0; padding-top:10px;">
             <div class="field-group">
               <label class="field-label">Bonus Code</label>
               <input type="text" id="bonusCodeInput" placeholder="e.g. WELCOME250" />
             </div>
             <button id="redeemCodeBtn" class="btn-primary">Redeem Code</button>
+          </div>
+        </div>
+
+        <div id="cashoutPanel" class="hidden" style="margin-top:12px;">
+          <div style="border-top:1px solid #b0b0b0; padding-top:10px;">
+            <div class="panel-title">Cashout Options</div>
+            <div id="cashoutOptions" class="info-line">Loading cashout options...</div>
+            <div style="margin-top:8px;">
+              <button id="loadCashoutBtn" class="btn-primary">Load Cashout Options</button>
+            </div>
           </div>
         </div>
       </div>
@@ -262,8 +271,8 @@ const els = {
   logoutBtn:         $("logoutBtn"),
   loadQuizBtn:       $("loadQuizBtn"),
   submitQuizBtn:     $("submitQuizBtn"),
-  redeemBtn:         $("redeemBtn"),
   redeemCodeBtn:     $("redeemCodeBtn"),
+  loadCashoutBtn:    $("loadCashoutBtn"),
   titleUser:         $("titleUser"),
   loginStatus:       $("loginStatus"),
   balancePill:       $("balancePill"),
@@ -272,12 +281,13 @@ const els = {
   quizIdPanel:       $("quizIdPanel"),
   quizPanel:         $("quizPanel"),
   rewardPanel:       $("rewardPanel"),
+  cashoutPanel:      $("cashoutPanel"),
   quizMeta:          $("quizMeta"),
   quizQuestions:     $("quizQuestions"),
   quizResult:        $("quizResult"),
   rewardNameLabel:   $("rewardNameLabel"),
   rewardAmountLabel: $("rewardAmountLabel"),
-  rewardInfoBox:     $("rewardInfoBox"),
+  cashoutOptions:    $("cashoutOptions"),
   userIdInput:       $("userIdInput"),
   passIdInput:       $("passIdInput"),
   quizIdInput:       $("quizIdInput"),
@@ -367,6 +377,9 @@ async function handleLogin() {
   updateBalanceDisplay(res.user.balance, res.user.reversal);
 
   showToast("Logged in!", "success");
+  
+  // Load cashout options automatically
+  loadCashoutOptions();
 }
 
 async function handleSignup() {
@@ -400,6 +413,9 @@ async function handleSignup() {
     updateBalanceDisplay(0, 0);
     
     showToast("Account created & logged in!", "success", 4000);
+    
+    // Load cashout options automatically
+    loadCashoutOptions();
   }
 }
 
@@ -412,6 +428,7 @@ function logout() {
   els.quizIdPanel.classList.add("hidden");
   els.quizPanel.classList.add("hidden");
   els.rewardPanel.classList.add("hidden");
+  els.cashoutPanel.classList.add("hidden");
   els.logoutBtn.style.display = "none";
   els.quizQuestions.innerHTML = "";
   els.quizResult.innerHTML = "";
@@ -459,11 +476,10 @@ async function loadQuiz() {
 
   els.rewardNameLabel.textContent   = currentQuiz.rewardName   || "—";
   els.rewardAmountLabel.textContent = Number(currentQuiz.rewardAmount || 0).toFixed(1) + " pts";
-  els.rewardInfoBox.textContent     = currentQuiz.rewardInfo   || "";
-  els.rewardInfoBox.classList.add("hidden");
 
   els.quizPanel.classList.remove("hidden");
   els.rewardPanel.classList.remove("hidden");
+  els.cashoutPanel.classList.remove("hidden");
   showToast("Quiz loaded", "success");
 }
 
@@ -567,6 +583,77 @@ async function redeemReward() {
 }
 
 // ────────────────────────────────────────────────
+// CASHOUT
+// ────────────────────────────────────────────────
+async function loadCashoutOptions() {
+  els.loadCashoutBtn.disabled = true;
+  els.loadCashoutBtn.textContent = "Loading...";
+  
+  const res = await apiCall("getCashoutOptions");
+  
+  els.loadCashoutBtn.disabled = false;
+  els.loadCashoutBtn.textContent = "Load Cashout Options";
+  
+  if (!res.success) {
+    els.cashoutOptions.innerHTML = '<span style="color:#b00020;">Failed to load options</span>';
+    return showToast(res.error || "Failed to load cashout options");
+  }
+  
+  if (!res.cashoutOptions || res.cashoutOptions.length === 0) {
+    els.cashoutOptions.innerHTML = '<em>No cashout options available</em>';
+    return;
+  }
+  
+  // Display cashout options
+  els.cashoutOptions.innerHTML = '';
+  res.cashoutOptions.forEach(option => {
+    const div = document.createElement('div');
+    div.className = 'cashout-item';
+    div.innerHTML = `
+      <strong>${option.rewardName}</strong><br>
+      <span style="font-size:11px;">Cost: ${option.rewardAmount} pts</span><br>
+      <span style="font-size:10px; color:#444;">${option.info}</span><br>
+      <button class="btn-success cashout-redeem-btn" data-reward="${option.rewardName}" data-cost="${option.rewardAmount}">
+        Cashout ${option.rewardAmount} pts
+      </button>
+    `;
+    els.cashoutOptions.appendChild(div);
+  });
+  
+  // Add event listeners to all cashout buttons
+  document.querySelectorAll('.cashout-redeem-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      handleCashout(btn.dataset.reward, btn.dataset.cost);
+    });
+  });
+  
+  showToast("Cashout options loaded", "success");
+}
+
+async function handleCashout(rewardName, cost) {
+  if (!currentUser) return showToast("Please login first");
+  
+  const have = Number(els.balancePill.textContent.replace(/[^0-9.]/g,"")) || 0;
+  const needCost = Number(cost);
+  
+  if (have < needCost) {
+    return showToast(`Need ${needCost} pts – have ${have.toFixed(1)}`);
+  }
+  
+  if (!confirm(`Cashout "${rewardName}" for ${needCost} points?`)) return;
+  
+  const res = await apiCall("cashout", {
+    userId: currentUser,
+    rewardName: rewardName
+  });
+  
+  if (!res.success) return showToast(res.error || "Cashout failed");
+  
+  updateBalanceDisplay(res.newBalance, null);
+  showToast(res.message || "Cashout successful!", "success", 4000);
+}
+
+// ────────────────────────────────────────────────
 // HELPERS
 // ────────────────────────────────────────────────
 function updateBalanceDisplay(balance, reversal) {
@@ -586,8 +673,8 @@ els.signupBtn.addEventListener("click", handleSignup);
 els.logoutBtn.addEventListener("click", logout);
 els.loadQuizBtn.addEventListener("click", loadQuiz);
 els.submitQuizBtn.addEventListener("click", submitQuiz);
-els.redeemBtn.addEventListener("click", redeemReward);
 els.redeemCodeBtn.addEventListener("click", redeemBonusCode);
+els.loadCashoutBtn.addEventListener("click", loadCashoutOptions);
 
 els.userIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
 els.passIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
