@@ -245,9 +245,7 @@
 <div id="toast" class="toast"></div>
 
 <script>
-// ────────────────────────────────────────────────
 // CONFIG
-// ────────────────────────────────────────────────
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbziffUlLgUP8jbifYKkXxHcw47VIbaYUC28JfG8L62cffMeVEZkIda5oSmup2hjibhc/exec";
 
 // State
@@ -255,78 +253,93 @@ let currentUser     = null;
 let currentUserId   = null;
 let currentQuiz     = null;
 
-// DOM
-const toast             = document.getElementById("toast");
-const loginBtn          = document.getElementById("loginBtn");
-const signupBtn         = document.getElementById("signupBtn");
-const logoutBtn         = document.getElementById("logoutBtn");
-const loadQuizBtn       = document.getElementById("loadQuizBtn");
-const submitQuizBtn     = document.getElementById("submitQuizBtn");
-const redeemBtn         = document.getElementById("redeemBtn");
-const redeemCodeBtn     = document.getElementById("redeemCodeBtn");
+// DOM cache
+const $ = id => document.getElementById(id);
+const els = {
+  toast:             $("toast"),
+  loginBtn:          $("loginBtn"),
+  signupBtn:         $("signupBtn"),
+  logoutBtn:         $("logoutBtn"),
+  loadQuizBtn:       $("loadQuizBtn"),
+  submitQuizBtn:     $("submitQuizBtn"),
+  redeemBtn:         $("redeemBtn"),
+  redeemCodeBtn:     $("redeemCodeBtn"),
+  titleUser:         $("titleUser"),
+  loginStatus:       $("loginStatus"),
+  balancePill:       $("balancePill"),
+  reversalPill:      $("reversalPill"),
+  loginPanel:        $("loginPanel"),
+  quizIdPanel:       $("quizIdPanel"),
+  quizPanel:         $("quizPanel"),
+  rewardPanel:       $("rewardPanel"),
+  quizMeta:          $("quizMeta"),
+  quizQuestions:     $("quizQuestions"),
+  quizResult:        $("quizResult"),
+  rewardNameLabel:   $("rewardNameLabel"),
+  rewardAmountLabel: $("rewardAmountLabel"),
+  rewardInfoBox:     $("rewardInfoBox"),
+  userIdInput:       $("userIdInput"),
+  passIdInput:       $("passIdInput"),
+  quizIdInput:       $("quizIdInput"),
+  bonusCodeInput:    $("bonusCodeInput")
+};
 
-const titleUser         = document.getElementById("titleUser");
-const titleUserLogo     = document.getElementById("titleUserLogo");
-const loginStatus       = document.getElementById("loginStatus");
-const balancePill       = document.getElementById("balancePill");
-const reversalPill      = document.getElementById("reversalPill");
-
-const loginPanel        = document.getElementById("loginPanel");
-const quizIdPanel       = document.getElementById("quizIdPanel");
-const quizPanel         = document.getElementById("quizPanel");
-const rewardPanel       = document.getElementById("rewardPanel");
-
-const quizMeta          = document.getElementById("quizMeta");
-const quizQuestions     = document.getElementById("quizQuestions");
-const quizResult        = document.getElementById("quizResult");
-const rewardNameLabel   = document.getElementById("rewardNameLabel");
-const rewardAmountLabel = document.getElementById("rewardAmountLabel");
-const rewardInfoBox     = document.getElementById("rewardInfoBox");
-
-const userIdInput       = document.getElementById("userIdInput");
-const passIdInput       = document.getElementById("passIdInput");
-const quizIdInput       = document.getElementById("quizIdInput");
-const bonusCodeInput    = document.getElementById("bonusCodeInput");
-
-// ────────────────────────────────────────────────
-// HELPERS
-// ────────────────────────────────────────────────
-function showToast(msg, type = "error", ms = 2800) {
-  toast.textContent = msg;
-  toast.className = `toast ${type} show`;
-  setTimeout(() => toast.classList.remove("show"), ms);
+// Toast helper
+function showToast(msg, type = "error", ms = 3200) {
+  els.toast.textContent = msg;
+  els.toast.className = `toast ${type} show`;
+  setTimeout(() => els.toast.classList.remove("show"), ms);
 }
 
+// FIXED apiCall – shows real errors + delay + logging
 async function apiCall(action, data = {}) {
+  if (!action) {
+    showToast("Client bug: no action", "error", 5000);
+    return { success: false, error: "missing action" };
+  }
+
   const form = new URLSearchParams();
   form.append("action", action);
-  Object.entries(data).forEach(([k,v]) => form.append(k, v));
+  for (const [k, v] of Object.entries(data)) {
+    if (v != null) form.append(k, v);
+  }
 
   try {
-    // POST (preferred by GAS)
+    console.log(`→ POST ${action}`, [...form]);
+
     await fetch(APPS_SCRIPT_URL, {
       method: "POST",
       mode: "no-cors",
       body: form
     });
 
-    // Because no-cors → we poll result via GET
+    // Wait – GAS needs time to write to PropertiesService
+    await new Promise(r => setTimeout(r, 900));
+
     const url = new URL(APPS_SCRIPT_URL);
     url.searchParams.set("action", "getLastResult");
-    const r = await fetch(url);
-    const text = await r.text();
 
-    try {
-      const json = JSON.parse(text);
-      if (!json.success) throw new Error(json.error || "Server error");
-      return json;
-    } catch (e) {
-      console.error("Invalid JSON:", text);
-      throw new Error("Bad response from server");
+    console.log(`→ GET last result`);
+
+    const resp = await fetch(url, { cache: "no-store" });
+    const text = await resp.text();
+
+    console.log(`← raw response:`, text);
+
+    if (!text.trim()) throw new Error("empty response");
+
+    const json = JSON.parse(text);
+
+    if (!json.success && json.error) {
+      showToast(json.error, "error", 4500);
+      console.warn("Server returned error:", json.error);
     }
+
+    return json;
+
   } catch (err) {
-    console.error(`apiCall ${action} failed:`, err);
-    showToast("Connection problem: " + err.message, "error", 4000);
+    console.error(`${action} failed:`, err);
+    showToast(`Error: ${err.message}`, "error", 5000);
     return { success: false, error: err.message };
   }
 }
@@ -335,59 +348,76 @@ async function apiCall(action, data = {}) {
 // AUTH
 // ────────────────────────────────────────────────
 async function handleLogin() {
-  const uid = userIdInput.value.trim();
-  const pwd = passIdInput.value.trim();
+  const uid = els.userIdInput.value.trim();
+  const pwd = els.passIdInput.value.trim();
   if (!uid || !pwd) return showToast("Enter UserID and Password");
 
-  loginBtn.disabled = true; loginBtn.textContent = "Logging in…";
+  els.loginBtn.disabled = true; els.loginBtn.textContent = "Logging in…";
   const res = await apiCall("login", { userId: uid, password: pwd });
-  loginBtn.disabled = false; loginBtn.textContent = "Login";
+  els.loginBtn.disabled = false; els.loginBtn.textContent = "Login";
 
   if (!res.success) return showToast(res.error || "Login failed");
 
   currentUser   = res.user.userId;
   currentUserId = res.user.id || res.user.userId;
 
-  titleUser.textContent = currentUser;
-  loginStatus.textContent = "Logged in";
-  loginStatus.classList.add("pill-logged");
-  loginPanel.classList.add("hidden");
-  quizIdPanel.classList.remove("hidden");
-  logoutBtn.style.display = "inline-block";
+  els.titleUser.textContent = currentUser;
+  els.loginStatus.textContent = "Logged in";
+  els.loginStatus.classList.add("pill-logged");
+  els.loginPanel.classList.add("hidden");
+  els.quizIdPanel.classList.remove("hidden");
+  els.logoutBtn.style.display = "inline-block";
 
-  balancePill.textContent  = Number(res.user.balance  || 0).toFixed(1) + " pts";
-  reversalPill.textContent = Number(res.user.reversal || 0).toFixed(1) + " %";
+  els.balancePill.textContent  = Number(res.user.balance  || 0).toFixed(1) + " pts";
+  els.reversalPill.textContent = Number(res.user.reversal || 0).toFixed(1) + " %";
 
-  showToast("Welcome back!", "success");
+  showToast("Logged in!", "success");
 }
 
 async function handleSignup() {
-  const uid = userIdInput.value.trim();
-  const pwd = passIdInput.value.trim();
-  if (!uid || !pwd) return showToast("Choose UserID and Password");
+  const uid = els.userIdInput.value.trim();
+  const pwd = els.passIdInput.value.trim();
+  if (!uid || !pwd) return showToast("Enter UserID and Password");
 
-  signupBtn.disabled = true; signupBtn.textContent = "Creating…";
-  const res = await apiCall("signup", { userId: uid, password: pwd });
-  signupBtn.disabled = false; signupBtn.textContent = "Sign Up";
+  els.signupBtn.disabled = true; els.signupBtn.textContent = "Creating…";
+  let res = await apiCall("signup", { userId: uid, password: pwd });
+  els.signupBtn.disabled = false; els.signupBtn.textContent = "Sign Up";
 
-  if (!res.success) return showToast(res.error || "Signup failed (ID may be taken)");
+  if (!res.success) return showToast(res.error || "Signup failed");
 
-  showToast("Account created! Now click Login.", "success", 4000);
+  // Auto-login after signup
+  res = await apiCall("login", { userId: uid, password: pwd });
+  if (res.success) {
+    currentUser   = res.user.userId;
+    currentUserId = res.user.id || res.user.userId;
+
+    els.titleUser.textContent = currentUser;
+    els.loginStatus.textContent = "Logged in";
+    els.loginStatus.classList.add("pill-logged");
+    els.loginPanel.classList.add("hidden");
+    els.quizIdPanel.classList.remove("hidden");
+    els.logoutBtn.style.display = "inline-block";
+
+    els.balancePill.textContent  = "0.0 pts";
+    els.reversalPill.textContent = "0.0 %";
+  }
+
+  showToast("Account created & logged in!", "success", 4000);
 }
 
 function logout() {
   currentUser = currentUserId = currentQuiz = null;
-  titleUser.textContent = "Guest";
-  balancePill.textContent = "0.0 pts";
-  reversalPill.textContent = "0.0 %";
-  loginStatus.textContent = "Logged out";
-  loginPanel.classList.remove("hidden");
-  quizIdPanel.classList.add("hidden");
-  quizPanel.classList.add("hidden");
-  rewardPanel.classList.add("hidden");
-  logoutBtn.style.display = "none";
-  quizQuestions.innerHTML = "";
-  quizResult.innerHTML = "";
+  els.titleUser.textContent = "Guest";
+  els.balancePill.textContent = "0.0 pts";
+  els.reversalPill.textContent = "0.0 %";
+  els.loginStatus.textContent = "Logged out";
+  els.loginPanel.classList.remove("hidden");
+  els.quizIdPanel.classList.add("hidden");
+  els.quizPanel.classList.add("hidden");
+  els.rewardPanel.classList.add("hidden");
+  els.logoutBtn.style.display = "none";
+  els.quizQuestions.innerHTML = "";
+  els.quizResult.innerHTML = "";
   showToast("Logged out", "success");
 }
 
@@ -395,151 +425,144 @@ function logout() {
 // QUIZ
 // ────────────────────────────────────────────────
 async function loadQuiz() {
-  const qid = quizIdInput.value.trim();
-  if (!qid) return showToast("Enter Quiz Access ID");
+  const qid = els.quizIdInput.value.trim();
+  if (!qid) return showToast("Enter Quiz ID");
 
-  loadQuizBtn.disabled = true; loadQuizBtn.textContent = "Loading…";
+  els.loadQuizBtn.disabled = true; els.loadQuizBtn.textContent = "Loading…";
   const res = await apiCall("getQuiz", { quizId: qid });
-  loadQuizBtn.disabled = false; loadQuizBtn.textContent = "Load Quiz";
+  els.loadQuizBtn.disabled = false; els.loadQuizBtn.textContent = "Load Quiz";
 
   if (!res.success) return showToast(res.error || "Quiz not found");
 
   currentQuiz = res.quiz;
 
-  quizMeta.textContent = `Reward: ${currentQuiz.rewardName || "?"}  •  ${currentQuiz.rewardAmount || 0} pts`;
+  els.quizMeta.textContent = `Reward: ${currentQuiz.rewardName || "?"} • ${currentQuiz.rewardAmount || 0} pts`;
 
-  quizQuestions.innerHTML = "";
-  submitQuizBtn.disabled = false;
+  els.quizQuestions.innerHTML = "";
+  els.submitQuizBtn.disabled = false;
 
   let i = 1;
   while (currentQuiz[`q${i}`]) {
-    const qText = currentQuiz[`q${i}`];
+    const txt = currentQuiz[`q${i}`];
     const div = document.createElement("div");
     div.className = "quiz-question";
-    div.innerHTML = `
-      <strong>Q${i}:</strong> ${qText}
-      <div class="quiz-input">
-        <input type="text" id="ans${i}" placeholder="Your answer" autocomplete="off" />
-      </div>
-    `;
-    quizQuestions.appendChild(div);
+    div.innerHTML = `<strong>Q${i}:</strong> ${txt}<div class="quiz-input"><input type="text" id="ans${i}" placeholder="Your answer" autocomplete="off"></div>`;
+    els.quizQuestions.appendChild(div);
     i++;
   }
 
-  rewardNameLabel.textContent   = currentQuiz.rewardName   || "—";
-  rewardAmountLabel.textContent = Number(currentQuiz.rewardAmount || 0).toFixed(1) + " pts";
-  rewardInfoBox.textContent     = currentQuiz.rewardInfo   || "";
-  rewardInfoBox.classList.add("hidden");
+  els.rewardNameLabel.textContent   = currentQuiz.rewardName   || "—";
+  els.rewardAmountLabel.textContent = Number(currentQuiz.rewardAmount || 0).toFixed(1) + " pts";
+  els.rewardInfoBox.textContent     = currentQuiz.rewardInfo   || "";
+  els.rewardInfoBox.classList.add("hidden");
 
-  quizPanel.classList.remove("hidden");
-  rewardPanel.classList.remove("hidden");
+  els.quizPanel.classList.remove("hidden");
+  els.rewardPanel.classList.remove("hidden");
   showToast("Quiz loaded", "success");
 }
 
 async function submitQuiz() {
-  if (!currentQuiz || !currentUser) return;
+  if (!currentQuiz || !currentUserId) return showToast("No quiz or not logged in");
 
-  submitQuizBtn.disabled = true; submitQuizBtn.textContent = "Submitting…";
+  els.submitQuizBtn.disabled = true; els.submitQuizBtn.textContent = "Submitting…";
 
   const answers = {};
   let i = 1;
-  while (document.getElementById(`ans${i}`)) {
-    answers[`a${i}`] = document.getElementById(`ans${i}`).value.trim();
+  while ($(`ans${i}`)) {
+    answers[`a${i}`] = $(`ans${i}`).value.trim();
     i++;
   }
 
   const res = await apiCall("submitQuiz", {
     userId: currentUserId,
-    quizId: currentQuiz.quizId || quizIdInput.value.trim(),
+    quizId: currentQuiz.quizId || els.quizIdInput.value.trim(),
     answers: JSON.stringify(answers)
   });
 
-  submitQuizBtn.disabled = false; submitQuizBtn.textContent = "Submit Answers";
+  els.submitQuizBtn.disabled = false; els.submitQuizBtn.textContent = "Submit Answers";
 
   if (!res.success) return showToast(res.error || "Submission failed");
 
-  // Server should have already removed the row & updated points
-
-  quizResult.innerHTML = `
+  els.quizResult.innerHTML = `
     <strong>Result:</strong><br>
-    ${res.message || "Quiz completed"}<br>
+    ${res.message || "Completed"}<br>
     Earned: <b>${Number(res.earned || 0).toFixed(1)} pts</b><br>
     New balance: <b>${Number(res.newBalance || 0).toFixed(1)} pts</b>
   `;
 
-  balancePill.textContent  = Number(res.newBalance  || 0).toFixed(1) + " pts";
-  reversalPill.textContent = Number(res.newReversal || 0).toFixed(1) + " %";
+  els.balancePill.textContent  = Number(res.newBalance  || 0).toFixed(1) + " pts";
+  els.reversalPill.textContent = Number(res.newReversal || 0).toFixed(1) + " %";
 
-  showToast("Quiz submitted – removed from sheet", "success", 3500);
-  submitQuizBtn.disabled = true; // prevent resubmit
+  showToast("Quiz submitted!", "success", 3500);
+  els.submitQuizBtn.disabled = true;
 }
 
 // ────────────────────────────────────────────────
-// REDEEM REWARD / CODE
+// REDEEM
 // ────────────────────────────────────────────────
+async function redeemBonusCode() {
+  const code = els.bonusCodeInput.value.trim();
+  if (!code) return showToast("Enter bonus code");
+
+  els.redeemCodeBtn.disabled = true; els.redeemCodeBtn.textContent = "Redeeming…";
+  const res = await apiCall("redeemCode", { userId: currentUserId, code });
+  els.redeemCodeBtn.disabled = false; els.redeemCodeBtn.textContent = "Redeem Code";
+
+  if (!res.success) return showToast(res.error || "Invalid/used code");
+
+  els.balancePill.textContent = Number(res.newBalance || 0).toFixed(1) + " pts";
+  showToast(`Success! +${res.amount} pts`, "success", 4000);
+  els.bonusCodeInput.value = "";
+}
+
 async function redeemReward() {
-  if (!currentQuiz || !currentUserId) return showToast("No active quiz or not logged in");
+  if (!currentQuiz || !currentUserId) return showToast("No quiz loaded");
 
   const cost = Number(currentQuiz.rewardAmount || 0);
-  const have = Number(balancePill.textContent.replace(/[^0-9.]/g,"")) || 0;
+  const have = Number(els.balancePill.textContent.replace(/[^0-9.]/g,"")) || 0;
 
-  if (have < cost) return showToast(`Need ${cost} pts – you have ${have.toFixed(1)}`);
+  if (have < cost) return showToast(`Need ${cost} pts – have ${have.toFixed(1)}`);
 
-  redeemBtn.disabled = true; redeemBtn.textContent = "Processing…";
+  els.redeemBtn.disabled = true; els.redeemBtn.textContent = "Processing…";
   const res = await apiCall("redeemReward", {
     userId: currentUserId,
-    quizId: currentQuiz.quizId || quizIdInput.value.trim(),
+    quizId: currentQuiz.quizId || els.quizIdInput.value.trim(),
     rewardName: currentQuiz.rewardName || "Reward"
   });
-  redeemBtn.disabled = false; redeemBtn.textContent = "Redeem Reward";
+  els.redeemBtn.disabled = false; els.redeemBtn.textContent = "Redeem Reward";
 
   if (!res.success) return showToast(res.error || "Redemption failed");
 
-  balancePill.textContent = Number(res.newBalance || 0).toFixed(1) + " pts";
-  rewardInfoBox.textContent = res.message || `Reward "${currentQuiz.rewardName}" redeemed!`;
-  rewardInfoBox.classList.remove("hidden");
+  els.balancePill.textContent = Number(res.newBalance || 0).toFixed(1) + " pts";
+  els.rewardInfoBox.textContent = res.message || "Reward redeemed!";
+  els.rewardInfoBox.classList.remove("hidden");
   showToast("Reward redeemed!", "success");
-}
-
-async function redeemBonusCode() {
-  const code = bonusCodeInput.value.trim();
-  if (!code) return showToast("Enter bonus code");
-
-  redeemCodeBtn.disabled = true; redeemCodeBtn.textContent = "Redeeming…";
-  const res = await apiCall("redeemCode", { userId: currentUserId, code });
-  redeemCodeBtn.disabled = false; redeemCodeBtn.textContent = "Redeem Code";
-
-  if (!res.success) return showToast(res.error || "Invalid or already used code");
-
-  balancePill.textContent = Number(res.newBalance || 0).toFixed(1) + " pts";
-  showToast(`Success! +${res.amount || "?"} pts added`, "success", 4000);
-  bonusCodeInput.value = "";
 }
 
 // ────────────────────────────────────────────────
 // LISTENERS
 // ────────────────────────────────────────────────
-loginBtn.addEventListener("click", handleLogin);
-signupBtn.addEventListener("click", handleSignup);
-logoutBtn.addEventListener("click", logout);
-loadQuizBtn.addEventListener("click", loadQuiz);
-submitQuizBtn.addEventListener("click", submitQuiz);
-redeemBtn.addEventListener("click", redeemReward);
-redeemCodeBtn.addEventListener("click", redeemBonusCode);
+els.loginBtn.addEventListener("click", handleLogin);
+els.signupBtn.addEventListener("click", handleSignup);
+els.logoutBtn.addEventListener("click", logout);
+els.loadQuizBtn.addEventListener("click", loadQuiz);
+els.submitQuizBtn.addEventListener("click", submitQuiz);
+els.redeemBtn.addEventListener("click", redeemReward);
+els.redeemCodeBtn.addEventListener("click", redeemBonusCode);
 
-userIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
-passIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
-quizIdInput.onkeypress = e => { if (e.key === "Enter") loadQuiz(); };
+els.userIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
+els.passIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
+els.quizIdInput.onkeypress = e => { if (e.key === "Enter") loadQuiz(); };
 
 document.addEventListener("keypress", e => {
   if (e.key === "Enter" && e.target.id?.startsWith("ans")) submitQuiz();
 });
 
-document.getElementById("hamburger").addEventListener("click", () => {
-  document.getElementById("appShell").classList.toggle("left-panel-collapsed");
+$("hamburger").addEventListener("click", () => {
+  $("appShell").classList.toggle("left-panel-collapsed");
 });
 
-// Start logged out
+// Start
 logout();
 </script>
 </body>
