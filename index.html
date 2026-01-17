@@ -15,6 +15,7 @@
     --xp-text: #000000;
     --danger: #b00020;
     --success: #0a7c00;
+    --warning: #c0a000;
   }
   * { box-sizing: border-box; font-family: "Tahoma", "Segoe UI", sans-serif; }
   body {
@@ -24,7 +25,7 @@
     min-height: 100vh;
   }
   .app-shell {
-    max-width: 960px;
+    max-width: 1200px;
     margin: 20px auto;
     border: 2px solid var(--xp-border);
     background: var(--xp-bg);
@@ -69,7 +70,8 @@
   .pill-balance { background: linear-gradient(to bottom, #e8ffe8, #b0e0b0); }
   .pill-reversal { background: linear-gradient(to bottom, #ffe8e8, #e0b0b0); }
   .pill-logged { background: linear-gradient(to bottom, #e8f0ff, #b0c4e0); }
-  .content-grid { display: grid; grid-template-columns: 260px 1fr; gap: 10px; }
+  .pill-warning { background: linear-gradient(to bottom, #fff8e8, #e0d0b0); }
+  .content-grid { display: grid; grid-template-columns: 280px 1fr; gap: 10px; }
   .panel {
     border: 1px solid #ffffff; box-shadow: 0 0 0 1px #808080 inset;
     background: #dcdcdc; padding: 8px; font-size: 12px;
@@ -104,11 +106,16 @@
     background: linear-gradient(to bottom, #e0ffe0, #a0e0a0);
     border-color: #0a7c00;
   }
+  .btn-warning {
+    background: linear-gradient(to bottom, #fff0e0, #ffd0b0);
+    border-color: #c0a000;
+  }
   .mini-note { font-size: 10px; color: #444; margin-top: 4px; }
   .quiz-questions { margin: 8px 0; }
   .quiz-question {
-    margin-bottom: 8px; padding: 6px; border-radius: 3px;
+    margin-bottom: 12px; padding: 8px; border-radius: 3px;
     background: #f8f8f8; border: 1px solid #b0b0b0;
+    position: relative;
   }
   .quiz-question strong { color: #0a246a; }
   .quiz-input input { margin-top: 4px; }
@@ -127,6 +134,88 @@
     margin-top: 10px; font-size: 10px; text-align: right; color: #444;
   }
   .hidden { display: none !important; }
+  
+  /* Anti-Cheat Styles */
+  .cheat-check {
+    background: #fffaf0;
+    border: 1px solid #ffcc00;
+    border-left: 4px solid #ff9900;
+    padding: 8px;
+    margin-top: 8px;
+    position: relative;
+  }
+  .cheat-check::before {
+    content: '🔒 ANTI-CHEAT';
+    position: absolute;
+    top: -8px;
+    left: 10px;
+    background: #ff9900;
+    color: white;
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-weight: bold;
+  }
+  .verification-instructions {
+    font-size: 11px;
+    color: #800000;
+    margin-bottom: 8px;
+    padding: 4px;
+    background: #fff0f0;
+    border: 1px dashed #ff6666;
+    text-align: center;
+  }
+  .word-blur {
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+    margin: 8px 0;
+    padding: 6px;
+    background: #f8f8f8;
+    border: 1px dashed #999;
+    text-align: center;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+  }
+  .word-blur::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255,255,255,0.8) 50%, 
+        transparent 100%);
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
+  .word-inputs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .word-input {
+    padding: 4px;
+    border: 1px solid #808080;
+    background: white;
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+  }
+  .word-input:focus {
+    border-color: #0a246a;
+    outline: none;
+    background: #f0f8ff;
+  }
+  
+  /* Toast */
   .toast {
     position: fixed; bottom: 16px; left: 16px;
     background: var(--danger); color: white;
@@ -137,11 +226,21 @@
     transition: all 0.25s ease;
     z-index: 9999;
     max-width: 320px;
+    border: 1px solid #ffffff;
+    border-left: 4px solid #ff0000;
   }
-  .toast.success { background: var(--success); }
+  .toast.success { 
+    background: var(--success); 
+    border-left: 4px solid #00aa00;
+  }
+  .toast.warning { 
+    background: var(--warning); 
+    border-left: 4px solid #ff9900;
+  }
   .toast.show {
     opacity: 1; transform: translateY(0); pointer-events: auto;
   }
+  
   @media (max-width: 720px) {
     .app-shell { margin: 8px; }
     .content-grid { grid-template-columns: 1fr; }
@@ -149,6 +248,7 @@
     .left-panel-collapsed .left-panel { display: none; }
     .toast { left: 50%; right: auto; transform: translateX(-50%) translateY(12px); }
     .toast.show { transform: translateX(-50%) translateY(0); }
+    .word-inputs { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -157,7 +257,7 @@
   <div class="title-bar">
     <div class="title-left">
       <div class="logo-box"></div>
-      <div class="title-text">Quiz Rewards Console</div>
+      <div class="title-text">IML Quiz Rewards Console</div>
     </div>
     <div class="title-right">
       <div id="titleUser">Guest</div>
@@ -174,47 +274,79 @@
         <span class="status-label">Session:</span>
         <span id="loginStatus" class="pill pill-logged">Logged out</span>
         <button id="logoutBtn" class="btn-danger" style="display:none;">Logout</button>
+        <button id="loginTopBtn" class="btn-primary">Login</button>
       </div>
       <div class="status-group">
         <span class="status-label">Balance:</span>
         <span id="balancePill" class="pill pill-balance">0.0 pts</span>
         <span class="status-label">Reversal:</span>
         <span id="reversalPill" class="pill pill-reversal">0.0 %</span>
+        <span class="pill pill-warning" id="cheatStatus" style="display:none;">🔒 Anti-Cheat</span>
       </div>
     </div>
 
     <div class="content-grid">
+      <!-- Left Panel -->
       <div class="panel left-panel">
-        <div class="panel-title">Account | Quiz Access</div>
+        <div class="panel-title" id="leftPanelTitle">Account Login</div>
         
         <div id="loginPanel">
           <div class="field-group">
             <label class="field-label" for="userIdInput">UserID</label>
-            <input type="text" id="userIdInput" placeholder="m123" autocomplete="off" />
+            <input type="text" id="userIdInput" placeholder="Enter User ID" autocomplete="off" />
           </div>
           <div class="field-group">
             <label class="field-label" for="passIdInput">Password</label>
-            <input type="password" id="passIdInput" placeholder="••••••" autocomplete="off" />
+            <input type="password" id="passIdInput" placeholder="Enter Password" autocomplete="off" />
           </div>
           <div style="display:flex; gap:8px; margin:10px 0;">
             <button id="loginBtn" class="btn-primary">Login</button>
             <button id="signupBtn" class="btn-success">Sign Up</button>
           </div>
-          <div class="mini-note">Case-sensitive • New users: click Sign Up first</div>
         </div>
 
         <div id="quizIdPanel" class="hidden">
           <div class="field-group">
             <label class="field-label" for="quizIdInput">Quiz Access ID</label>
-            <input type="text" id="quizIdInput" placeholder="demo01" autocomplete="off" />
+            <input type="text" id="quizIdInput" placeholder="Enter Quiz ID" autocomplete="off" />
           </div>
           <button id="loadQuizBtn" class="btn-primary">Load Quiz</button>
           <div class="mini-note">Questions loaded from Google Sheet</div>
+          <div class="mini-note" style="color:#b00000; margin-top:6px;">
+            <strong>⚠ Anti-Cheat Active:</strong> Must enter verification words
+          </div>
+        </div>
+        
+        <div id="userActions" class="hidden" style="margin-top:12px;">
+          <div class="panel-title">Quick Actions</div>
+          <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
+            <button id="redeemBtn" class="btn-warning">Redeem Code</button>
+            <button id="cashoutBtn" class="btn-success">View Cashout</button>
+            <button id="historyBtn" class="btn-primary">History</button>
+          </div>
         </div>
       </div>
 
+      <!-- Right Panel -->
       <div class="panel">
-        <div class="panel-title">Active Quiz & Reward</div>
+        <div class="panel-title" id="rightPanelTitle">Welcome to IML Quiz Rewards</div>
+
+        <!-- Welcome Message (shown when not logged in) -->
+        <div id="welcomePanel">
+          <div class="info-line" style="margin: 15px 0;">
+            <p><strong>Welcome to IML Quiz Rewards System!</strong></p>
+            <p>Please login or sign up to:</p>
+            <ul style="margin: 8px 0 8px 20px; font-size: 11px;">
+              <li>Take quizzes and earn points</li>
+              <li>Redeem bonus codes</li>
+              <li>Cashout rewards</li>
+              <li>Track your progress</li>
+            </ul>
+            <p style="margin-top: 10px; font-size: 10px; color: #444;">
+              <strong>Note:</strong> Anti-cheat system is active. All quiz submissions require verification.
+            </p>
+          </div>
+        </div>
 
         <div id="quizPanel" class="hidden">
           <div id="quizMeta" class="info-line"></div>
@@ -223,27 +355,32 @@
           <div id="quizResult" class="info-line"></div>
         </div>
 
-        <div id="rewardPanel" class="hidden" style="margin-top:12px;">
-          <div style="margin-top:16px; border-top:1px solid #b0b0b0; padding-top:10px;">
-            <div class="field-group">
-              <label class="field-label">Bonus Code</label>
-              <input type="text" id="bonusCodeInput" placeholder="e.g. WELCOME250" />
-            </div>
-            <button id="redeemCodeBtn" class="btn-primary">Redeem Code</button>
+        <div id="redeemPanel" class="hidden" style="margin-top:12px;">
+          <div class="panel-title">Redeem Bonus Code</div>
+          <div class="field-group">
+            <label class="field-label">Bonus Code</label>
+            <input type="text" id="bonusCodeInput" placeholder="e.g. WELCOME250" />
+            <div class="mini-note" id="redeemNote">Enter valid bonus code</div>
           </div>
+          <button id="redeemCodeBtn" class="btn-warning">Redeem Code</button>
+          <div id="redeemResult" class="info-line" style="margin-top:8px;"></div>
         </div>
 
         <div id="cashoutPanel" class="hidden" style="margin-top:12px;">
-          <div style="border-top:1px solid #b0b0b0; padding-top:10px;">
-            <div class="panel-title">Cashout Options</div>
-            <div id="cashoutOptions" class="info-line">Cashout options will appear when you accumulate enough points</div>
-          </div>
+          <div class="panel-title">Cashout Options</div>
+          <div id="cashoutOptions" class="info-line">Cashout options will appear when you accumulate enough points</div>
+          <div id="cashoutResult" class="info-line" style="margin-top:8px;"></div>
+        </div>
+
+        <div id="historyPanel" class="hidden" style="margin-top:12px;">
+          <div class="panel-title">Activity History</div>
+          <div id="historyContent" class="info-line">Your activity history will appear here.</div>
         </div>
       </div>
     </div>
 
     <div class="footer-bar">
-      Reversal % = (1 − (Earned / Total possible)) × 100 • Higher reversal means more room for improvement!
+      Reversal % = (1 − (Earned / Total possible)) × 100 • Anti-Cheat: All 3 verification words must match to earn points
     </div>
   </div>
 </div>
@@ -251,42 +388,78 @@
 <div id="toast" class="toast"></div>
 
 <script>
-// CONFIG - REPLACE WITH YOUR ACTUAL APPS SCRIPT URL
+// CONFIG
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbziffUlLgUP8jbifYKkXxHcw47VIbaYUC28JfG8L62cffMeVEZkIda5oSmup2hjibhc/exec";
 
 // State
 let currentUser = null;
-let currentUserId = null;
 let currentQuiz = null;
 let userBalance = 0;
+let userReversal = 0;
+let verificationWords = {};
 
 // DOM cache
 const $ = id => document.getElementById(id);
 const els = {
+  // Core elements
+  appShell: $("appShell"),
   toast: $("toast"),
-  loginBtn: $("loginBtn"),
-  signupBtn: $("signupBtn"),
-  logoutBtn: $("logoutBtn"),
-  loadQuizBtn: $("loadQuizBtn"),
-  submitQuizBtn: $("submitQuizBtn"),
-  redeemCodeBtn: $("redeemCodeBtn"),
+  
+  // Navigation
+  hamburger: $("hamburger"),
   titleUser: $("titleUser"),
   loginStatus: $("loginStatus"),
   balancePill: $("balancePill"),
   reversalPill: $("reversalPill"),
-  loginPanel: $("loginPanel"),
-  quizIdPanel: $("quizIdPanel"),
-  quizPanel: $("quizPanel"),
-  rewardPanel: $("rewardPanel"),
-  cashoutPanel: $("cashoutPanel"),
-  quizMeta: $("quizMeta"),
-  quizQuestions: $("quizQuestions"),
-  quizResult: $("quizResult"),
-  cashoutOptions: $("cashoutOptions"),
+  cheatStatus: $("cheatStatus"),
+  loginTopBtn: $("loginTopBtn"),
+  
+  // Panel Titles
+  leftPanelTitle: $("leftPanelTitle"),
+  rightPanelTitle: $("rightPanelTitle"),
+  
+  // Login
+  loginBtn: $("loginBtn"),
+  signupBtn: $("signupBtn"),
+  logoutBtn: $("logoutBtn"),
   userIdInput: $("userIdInput"),
   passIdInput: $("passIdInput"),
+  
+  // Panels
+  loginPanel: $("loginPanel"),
+  welcomePanel: $("welcomePanel"),
+  quizIdPanel: $("quizIdPanel"),
+  userActions: $("userActions"),
+  quizPanel: $("quizPanel"),
+  redeemPanel: $("redeemPanel"),
+  cashoutPanel: $("cashoutPanel"),
+  historyPanel: $("historyPanel"),
+  
+  // Quiz
   quizIdInput: $("quizIdInput"),
-  bonusCodeInput: $("bonusCodeInput")
+  loadQuizBtn: $("loadQuizBtn"),
+  quizMeta: $("quizMeta"),
+  quizQuestions: $("quizQuestions"),
+  submitQuizBtn: $("submitQuizBtn"),
+  quizResult: $("quizResult"),
+  
+  // Redeem
+  bonusCodeInput: $("bonusCodeInput"),
+  redeemCodeBtn: $("redeemCodeBtn"),
+  redeemNote: $("redeemNote"),
+  redeemResult: $("redeemResult"),
+  
+  // Cashout
+  cashoutOptions: $("cashoutOptions"),
+  cashoutResult: $("cashoutResult"),
+  
+  // History
+  historyContent: $("historyContent"),
+  
+  // Quick Actions
+  redeemBtn: $("redeemBtn"),
+  cashoutBtn: $("cashoutBtn"),
+  historyBtn: $("historyBtn")
 };
 
 // Toast helper
@@ -304,7 +477,6 @@ async function apiCall(action, data = {}) {
   }
 
   try {
-    // Build URL-encoded string
     const params = { action, ...data };
     const bodyParts = [];
     for (const key in params) {
@@ -338,7 +510,145 @@ async function apiCall(action, data = {}) {
 }
 
 // ────────────────────────────────────────────────
-// AUTH
+// SESSION MANAGEMENT
+// ────────────────────────────────────────────────
+function initSession() {
+  const savedUser = localStorage.getItem('quizUser');
+  if (savedUser) {
+    const userData = JSON.parse(savedUser);
+    currentUser = userData.userId;
+    userBalance = userData.balance || 0;
+    userReversal = userData.reversal || 0;
+    
+    updateUserDisplay(userData.userId, userData.balance, userReversal);
+    showLoggedInView();
+    restoreSession(userData.userId);
+  } else {
+    showLoggedOutView();
+  }
+}
+
+function saveSession(userId, balance, reversal) {
+  const userData = {
+    userId: userId,
+    balance: balance,
+    reversal: reversal,
+    timestamp: Date.now()
+  };
+  localStorage.setItem('quizUser', JSON.stringify(userData));
+}
+
+function clearSession() {
+  localStorage.removeItem('quizUser');
+  currentUser = null;
+  userBalance = 0;
+  userReversal = 0;
+  verificationWords = {};
+  
+  updateUserDisplay('Guest', 0, 0);
+  showLoggedOutView();
+  showToast('Logged out successfully', 'success');
+}
+
+async function restoreSession(userId) {
+  const response = await apiCall('restoreSession', { userId: userId });
+  if (response.success) {
+    userBalance = response.user.balance;
+    userReversal = response.user.reversal;
+    updateUserDisplay(userId, userBalance, userReversal);
+  } else {
+    clearSession();
+  }
+}
+
+// ────────────────────────────────────────────────
+// USER INTERFACE
+// ────────────────────────────────────────────────
+function updateUserDisplay(username, balance, reversal) {
+  els.titleUser.textContent = username || 'Guest';
+  els.loginStatus.textContent = username ? 'Logged in' : 'Logged out';
+  els.balancePill.textContent = Number(balance).toFixed(1) + " pts";
+  els.reversalPill.textContent = Number(reversal).toFixed(1) + " %";
+  
+  if (username) {
+    els.loginTopBtn.style.display = 'none';
+    els.logoutBtn.style.display = 'inline-block';
+  } else {
+    els.loginTopBtn.style.display = 'inline-block';
+    els.logoutBtn.style.display = 'none';
+  }
+}
+
+function showLoggedOutView() {
+  // Left panel
+  els.leftPanelTitle.textContent = "Account Login";
+  els.loginPanel.classList.remove('hidden');
+  els.quizIdPanel.classList.add('hidden');
+  els.userActions.classList.add('hidden');
+  
+  // Right panel
+  els.rightPanelTitle.textContent = "Welcome to IML Quiz Rewards";
+  els.welcomePanel.classList.remove('hidden');
+  els.quizPanel.classList.add('hidden');
+  els.redeemPanel.classList.add('hidden');
+  els.cashoutPanel.classList.add('hidden');
+  els.historyPanel.classList.add('hidden');
+  
+  // Hide cheat status
+  els.cheatStatus.style.display = 'none';
+}
+
+function showLoggedInView() {
+  // Left panel
+  els.leftPanelTitle.textContent = "Quiz Access";
+  els.loginPanel.classList.add('hidden');
+  els.quizIdPanel.classList.remove('hidden');
+  els.userActions.classList.remove('hidden');
+  
+  // Right panel - show quiz panel by default
+  els.rightPanelTitle.textContent = "Active Quiz & Reward";
+  els.welcomePanel.classList.add('hidden');
+  showPanel('quizPanel');
+  
+  // Update redeem note based on reversal
+  if (userReversal > 10) {
+    els.redeemNote.innerHTML = '<span style="color:#b00000;">❌ Cannot redeem: reversal > 10%</span>';
+    els.redeemNote.style.display = 'block';
+  } else {
+    els.redeemNote.innerHTML = 'Enter valid bonus code';
+    els.redeemNote.style.display = 'block';
+  }
+}
+
+function showPanel(panelId) {
+  // Hide all panels except welcome (which is already hidden when logged in)
+  const panels = ['quizPanel', 'redeemPanel', 'cashoutPanel', 'historyPanel'];
+  panels.forEach(panel => els[panel].classList.add('hidden'));
+  
+  // Show selected panel
+  if (els[panelId]) {
+    els[panelId].classList.remove('hidden');
+  }
+  
+  // Update right panel title
+  const titles = {
+    'quizPanel': 'Active Quiz & Reward',
+    'redeemPanel': 'Redeem Bonus Code',
+    'cashoutPanel': 'Cashout Options',
+    'historyPanel': 'Activity History'
+  };
+  els.rightPanelTitle.textContent = titles[panelId] || 'Active Quiz & Reward';
+  
+  // Show cheat status for quiz panel
+  if (panelId === 'quizPanel') {
+    els.cheatStatus.style.display = 'inline-block';
+  } else {
+    els.cheatStatus.style.display = 'none';
+  }
+}
+
+// ────────────────────────────────────────────────
+// AUTHENTICATION
 // ────────────────────────────────────────────────
 async function handleLogin() {
   const uid = els.userIdInput.value.trim();
@@ -355,22 +665,14 @@ async function handleLogin() {
 
   if (!res.success) return showToast(res.error || "Login failed");
 
-  currentUser = res.user.userId;
-  currentUserId = res.user.id;
+  currentUser = uid;
   userBalance = res.user.balance;
+  userReversal = res.user.reversal;
 
-  els.titleUser.textContent = currentUser;
-  els.loginStatus.textContent = "Logged in";
-  els.loginPanel.classList.add("hidden");
-  els.quizIdPanel.classList.remove("hidden");
-  els.logoutBtn.style.display = "inline-block";
-
-  updateBalanceDisplay(res.user.balance, res.user.reversal);
-
+  saveSession(uid, userBalance, userReversal);
+  updateUserDisplay(uid, userBalance, userReversal);
+  showLoggedInView();
   showToast("Logged in!", "success");
-  
-  // Check if we should show cashout
-  checkCashoutVisibility();
 }
 
 async function handleSignup() {
@@ -391,48 +693,53 @@ async function handleSignup() {
   // Auto-login after signup
   const loginRes = await apiCall("login", { userId: uid, password: pwd });
   if (loginRes.success) {
-    currentUser = loginRes.user.userId;
-    currentUserId = loginRes.user.id;
-    userBalance = 0;
+    currentUser = uid;
+    userBalance = loginRes.user.balance;
+    userReversal = loginRes.user.reversal;
 
-    els.titleUser.textContent = currentUser;
-    els.loginStatus.textContent = "Logged in";
-    els.loginPanel.classList.add("hidden");
-    els.quizIdPanel.classList.remove("hidden");
-    els.logoutBtn.style.display = "inline-block";
-
-    updateBalanceDisplay(0, 0);
-    
+    saveSession(uid, userBalance, userReversal);
+    updateUserDisplay(uid, userBalance, userReversal);
+    showLoggedInView();
     showToast("Account created & logged in!", "success", 4000);
-    
-    // Hide cashout for new users
-    els.cashoutPanel.classList.add("hidden");
   }
 }
 
-function logout() {
-  currentUser = currentUserId = currentQuiz = null;
-  userBalance = 0;
-  els.titleUser.textContent = "Guest";
-  updateBalanceDisplay(0, 0);
-  els.loginStatus.textContent = "Logged out";
-  els.loginPanel.classList.remove("hidden");
-  els.quizIdPanel.classList.add("hidden");
-  els.quizPanel.classList.add("hidden");
-  els.rewardPanel.classList.add("hidden");
-  els.cashoutPanel.classList.add("hidden");
-  els.logoutBtn.style.display = "none";
-  els.quizQuestions.innerHTML = "";
-  els.quizResult.innerHTML = "";
-  els.userIdInput.value = "";
-  els.passIdInput.value = "";
-  els.quizIdInput.value = "";
-  els.bonusCodeInput.value = "";
-  showToast("Logged out", "success");
+// ────────────────────────────────────────────────
+// ANTI-CHEAT FUNCTIONS
+// ────────────────────────────────────────────────
+function extractRandomWords(text, count = 3) {
+  // Remove special characters and split into words
+  const words = text.toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length > 3) // Only words longer than 3 characters
+    .filter((word, index, self) => self.indexOf(word) === index); // Remove duplicates
+  
+  // Shuffle and pick random words
+  const shuffled = [...words].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, words.length));
+}
+
+function checkVerificationWords(questionNum, userWords) {
+  const correctWords = verificationWords[`q${questionNum}`] || [];
+  
+  // All 3 words must match exactly
+  if (correctWords.length !== 3 || userWords.length !== 3) {
+    return false;
+  }
+  
+  // Check each word (case insensitive)
+  for (let i = 0; i < 3; i++) {
+    if (userWords[i].toLowerCase().trim() !== correctWords[i].toLowerCase()) {
+      return false;
+    }
+  }
+  
+  return true;
 }
 
 // ────────────────────────────────────────────────
-// QUIZ
+// QUIZ FUNCTIONS
 // ────────────────────────────────────────────────
 async function loadQuiz() {
   const qid = els.quizIdInput.value.trim();
@@ -449,9 +756,9 @@ async function loadQuiz() {
   if (!res.success) return showToast(res.error || "Quiz not found");
 
   currentQuiz = res.quiz;
+  verificationWords = {};
 
   els.quizMeta.textContent = `Reward: ${currentQuiz.rewardName || "?"} • ${currentQuiz.rewardAmount || 0} pts`;
-
   els.quizQuestions.innerHTML = "";
   els.submitQuizBtn.disabled = false;
   els.quizResult.innerHTML = "";
@@ -459,16 +766,40 @@ async function loadQuiz() {
   let i = 1;
   while (currentQuiz[`q${i}`]) {
     const txt = currentQuiz[`q${i}`];
+    
+    // Extract 3 random words for anti-cheat
+    const randomWords = extractRandomWords(txt, 3);
+    verificationWords[`q${i}`] = randomWords;
+    
     const div = document.createElement("div");
     div.className = "quiz-question";
-    div.innerHTML = `<strong>Q${i}:</strong> ${txt}<div class="quiz-input"><input type="text" id="ans${i}" placeholder="Your answer" autocomplete="off"></div>`;
+    div.innerHTML = `
+      <strong>Q${i}:</strong> ${txt}
+      <div class="quiz-input" style="margin-top:6px;">
+        <input type="text" id="ans${i}" placeholder="Your answer" autocomplete="off" style="width:100%;">
+      </div>
+      
+      <div class="cheat-check">
+        <div class="verification-instructions">
+          ANTI-CHEAT: Enter these 3 words exactly as shown:
+        </div>
+        <div class="word-blur">${randomWords.join(' • ')}</div>
+        <div class="word-inputs">
+          <input type="text" class="word-input" id="word1_${i}" placeholder="Word 1">
+          <input type="text" class="word-input" id="word2_${i}" placeholder="Word 2">
+          <input type="text" class="word-input" id="word3_${i}" placeholder="Word 3">
+        </div>
+        <div style="font-size:10px; color:#666; text-align:center; margin-top:4px;">
+          All 3 words must match exactly to earn points
+        </div>
+      </div>
+    `;
     els.quizQuestions.appendChild(div);
     i++;
   }
 
-  els.quizPanel.classList.remove("hidden");
-  els.rewardPanel.classList.remove("hidden");
-  showToast("Quiz loaded!", "success");
+  showPanel('quizPanel');
+  showToast("Quiz loaded with anti-cheat protection", "success");
 }
 
 async function submitQuiz() {
@@ -478,17 +809,46 @@ async function submitQuiz() {
   els.submitQuizBtn.disabled = true; 
   els.submitQuizBtn.textContent = "Submitting…";
 
+  // Collect answers and verification words
   const answers = {};
+  const verifications = {};
+  let allVerificationsPassed = true;
   let i = 1;
+  
   while ($(`ans${i}`)) {
+    // Main answer
     answers[`a${i}`] = $(`ans${i}`).value.trim();
+    
+    // Verification words
+    const word1 = $(`word1_${i}`)?.value.trim() || '';
+    const word2 = $(`word2_${i}`)?.value.trim() || '';
+    const word3 = $(`word3_${i}`)?.value.trim() || '';
+    const userWords = [word1, word2, word3];
+    
+    // Check verification
+    const verificationPassed = checkVerificationWords(i, userWords);
+    verifications[`v${i}`] = verificationPassed;
+    
+    if (!verificationPassed) {
+      allVerificationsPassed = false;
+    }
+    
     i++;
+  }
+
+  // If any verification failed, show error
+  if (!allVerificationsPassed) {
+    showToast('ANTI-CHEAT FAILED: All 3 verification words must match exactly for each question!', 'error', 5000);
+    els.submitQuizBtn.disabled = false;
+    els.submitQuizBtn.textContent = "Submit Answers";
+    return;
   }
 
   const res = await apiCall("submitQuiz", {
     userId: currentUser,
     quizId: currentQuiz.quizId || els.quizIdInput.value.trim(),
-    answers: JSON.stringify(answers)
+    answers: JSON.stringify(answers),
+    verifications: JSON.stringify(verifications)
   });
 
   els.submitQuizBtn.textContent = "Submit Answers";
@@ -498,45 +858,54 @@ async function submitQuiz() {
     return showToast(res.error || "Submission failed");
   }
 
+  // Show result
   els.quizResult.innerHTML = `
-    <strong>Quiz Submitted!</strong><br>
-    ${res.message || "Completed"}<br>
-    Correct: ${res.correct || 0}/${res.totalQuestions || 0}<br>
-    Earned: <b>${Number(res.earned || 0).toFixed(1)} pts</b><br>
-    New reversal: <b>${Number(res.newReversal || 0).toFixed(1)}%</b><br>
-    New balance: <b>${Number(res.newBalance || 0).toFixed(1)} pts</b>
+    <div style="background:#f0fff0; border:1px solid #00aa00; padding:8px; border-radius:3px;">
+      <strong>✅ Quiz Submitted Successfully!</strong><br>
+      <div style="margin-top:4px;">
+        <span style="color:#00aa00;">✓ Anti-cheat verification PASSED</span><br>
+        Correct: <b>${res.correct || 0}/${res.totalQuestions || 0}</b><br>
+        Earned: <b>${Number(res.earned || 0).toFixed(1)} pts</b><br>
+        New reversal: <b>${Number(res.newReversal || 0).toFixed(1)}%</b><br>
+        New balance: <b>${Number(res.newBalance || 0).toFixed(1)} pts</b>
+      </div>
+    </div>
+    <div style="margin-top:8px; text-align:center;">
+      <button id="backToQuizBtn" class="btn-primary">Take Another Quiz</button>
+    </div>
   `;
 
-  userBalance = res.newBalance;
-  updateBalanceDisplay(res.newBalance, res.newReversal);
-  
-  // Clear quiz input and fade out UI
+  // Update user data
+  userBalance = parseFloat(res.newBalance);
+  userReversal = parseFloat(res.newReversal);
+  saveSession(currentUser, userBalance, userReversal);
+  updateUserDisplay(currentUser, userBalance, userReversal);
+
+  // Reset quiz state
+  currentQuiz = null;
+  verificationWords = {};
   els.quizIdInput.value = "";
-  els.quizPanel.style.opacity = "0.7";
-  els.quizPanel.style.transition = "opacity 1s";
   
-  // Disable submit button
-  els.submitQuizBtn.disabled = true;
-  els.submitQuizBtn.textContent = "Quiz Completed ✓";
-  
-  showToast("Quiz submitted successfully!", "success", 4000);
-  
-  // Check if we should show cashout options
-  checkCashoutVisibility();
-  
-  // Reload cashout options if panel is visible
-  if (!els.cashoutPanel.classList.contains("hidden")) {
-    loadCashoutOptions();
-  }
+  // Add back button listener
+  $("#backToQuizBtn").addEventListener("click", () => {
+    els.quizResult.innerHTML = "";
+    els.submitQuizBtn.disabled = true;
+  });
 }
 
 // ────────────────────────────────────────────────
-// REDEEM
+// REDEEM & CASHOUT
 // ────────────────────────────────────────────────
 async function redeemBonusCode() {
   const code = els.bonusCodeInput.value.trim();
   if (!code) return showToast("Enter bonus code");
   if (!currentUser) return showToast("Please login first");
+
+  // Check reversal restriction
+  if (userReversal > 10) {
+    showToast("Cannot redeem: reversal rate > 10%", "error");
+    return;
+  }
 
   els.redeemCodeBtn.disabled = true; 
   els.redeemCodeBtn.textContent = "Redeeming…";
@@ -549,72 +918,60 @@ async function redeemBonusCode() {
   els.redeemCodeBtn.disabled = false; 
   els.redeemCodeBtn.textContent = "Redeem Code";
 
-  if (!res.success) return showToast(res.error || "Invalid or already used code");
-
-  userBalance = res.newBalance;
-  updateBalanceDisplay(res.newBalance, null);
-  
-  showToast(`Success! +${res.amount} pts`, "success", 4000);
-  els.bonusCodeInput.value = "";
-  
-  // Check if we should show cashout
-  checkCashoutVisibility();
-}
-
-// ────────────────────────────────────────────────
-// CASHOUT
-// ────────────────────────────────────────────────
-function checkCashoutVisibility() {
-  // Only show cashout if user has at least 100 points
-  if (userBalance >= 100) {
-    els.cashoutPanel.classList.remove("hidden");
-    loadCashoutOptions();
-  } else {
-    els.cashoutPanel.classList.add("hidden");
+  if (!res.success) {
+    els.redeemResult.innerHTML = `<span style="color:#b00000;">❌ ${res.error || "Invalid code"}</span>`;
+    return showToast(res.error || "Redemption failed", "error");
   }
+
+  // Update balance
+  userBalance = parseFloat(res.newBalance);
+  saveSession(currentUser, userBalance, userReversal);
+  updateUserDisplay(currentUser, userBalance, userReversal);
+  
+  els.redeemResult.innerHTML = `<span style="color:#0a7c00;">✅ Success! +${res.amount} pts added</span>`;
+  els.bonusCodeInput.value = "";
+  showToast(`Bonus code redeemed! +${res.amount} pts`, "success", 4000);
 }
 
 async function loadCashoutOptions() {
   const res = await apiCall("getCashoutOptions");
   
-  if (!res.success) {
-    els.cashoutOptions.innerHTML = '<span style="color:#b00020;">Failed to load options</span>';
-    return;
-  }
-  
-  if (!res.cashoutOptions || res.cashoutOptions.length === 0) {
+  if (!res.success || !res.cashoutOptions || res.cashoutOptions.length === 0) {
     els.cashoutOptions.innerHTML = '<em>No cashout options available at this time</em>';
     return;
   }
   
-  // Filter options user can afford
+  // Filter affordable options
   const affordableOptions = res.cashoutOptions.filter(option => 
-    Number(option.rewardAmount) <= userBalance
+    parseFloat(option.rewardAmount) <= userBalance
   );
   
   if (affordableOptions.length === 0) {
     els.cashoutOptions.innerHTML = `
-      <em>You need more points to cash out. Minimum required: ${Math.min(...res.cashoutOptions.map(o => o.rewardAmount))} pts</em><br>
-      <span style="font-size:10px; color:#444;">Current balance: ${userBalance} pts</span>
+      <em>Need more points to cash out</em><br>
+      <span style="font-size:10px; color:#444;">Current: ${userBalance.toFixed(1)} pts</span>
     `;
     return;
   }
   
-  // Display affordable cashout options
-  els.cashoutOptions.innerHTML = '';
+  // Display options
+  let html = '';
   affordableOptions.forEach(option => {
-    const div = document.createElement('div');
-    div.className = 'cashout-item';
-    div.innerHTML = `
-      <strong>${option.rewardName}</strong><br>
-      <span style="font-size:11px;">Cost: ${option.rewardAmount} pts</span><br>
-      <span style="font-size:10px; color:#444;">${option.info}</span><br>
-      <button class="btn-success cashout-redeem-btn" data-reward="${option.rewardName}" data-cost="${option.rewardAmount}">
-        Cashout ${option.rewardAmount} pts
-      </button>
+    html += `
+      <div class="cashout-item">
+        <strong>${option.rewardName}</strong><br>
+        <span style="font-size:11px;">Cost: ${option.rewardAmount} pts</span><br>
+        <span style="font-size:10px; color:#444;">${option.info}</span><br>
+        <button class="btn-success cashout-redeem-btn" 
+                data-reward="${option.rewardName}" 
+                data-cost="${option.rewardAmount}">
+          Redeem ${option.rewardAmount} pts
+        </button>
+      </div>
     `;
-    els.cashoutOptions.appendChild(div);
   });
+  
+  els.cashoutOptions.innerHTML = html;
   
   // Add event listeners
   document.querySelectorAll('.cashout-redeem-btn').forEach(btn => {
@@ -627,68 +984,92 @@ async function loadCashoutOptions() {
 async function handleCashout(rewardName, cost) {
   if (!currentUser) return showToast("Please login first");
   
-  const needCost = Number(cost);
-  
+  const needCost = parseFloat(cost);
   if (userBalance < needCost) {
     return showToast(`Need ${needCost} pts – have ${userBalance.toFixed(1)}`);
   }
   
-  if (!confirm(`Cashout "${rewardName}" for ${needCost} points? This action cannot be undone.`)) return;
+  if (!confirm(`Cashout "${rewardName}" for ${needCost} points?`)) return;
   
   const res = await apiCall("cashout", {
     userId: currentUser,
     rewardName: rewardName
   });
   
-  if (!res.success) return showToast(res.error || "Cashout failed");
+  if (!res.success) {
+    els.cashoutResult.innerHTML = `<span style="color:#b00000;">❌ ${res.error}</span>`;
+    return showToast(res.error || "Cashout failed", "error");
+  }
   
-  userBalance = res.newBalance;
-  updateBalanceDisplay(res.newBalance, null);
+  // Update balance
+  userBalance = parseFloat(res.newBalance);
+  saveSession(currentUser, userBalance, userReversal);
+  updateUserDisplay(currentUser, userBalance, userReversal);
   
-  showToast(res.message || "Cashout successful! Check your email for details.", "success", 5000);
+  els.cashoutResult.innerHTML = `
+    <div style="background:#f0fff0; border:1px solid #00aa00; padding:8px; border-radius:3px;">
+      <strong>✅ Cashout Successful!</strong><br>
+      ${res.message || "Reward redeemed successfully"}<br>
+      <span style="font-size:10px;">Details: ${res.info || 'Check your email'}</span>
+    </div>
+  `;
+  
+  showToast("Cashout successful! " + res.message, "success", 5000);
   
   // Reload cashout options
-  loadCashoutOptions();
-  checkCashoutVisibility();
+  setTimeout(loadCashoutOptions, 1000);
 }
 
 // ────────────────────────────────────────────────
-// HELPERS
+// EVENT LISTENERS
 // ────────────────────────────────────────────────
-function updateBalanceDisplay(balance, reversal) {
-  if (balance !== null && balance !== undefined) {
-    els.balancePill.textContent = Number(balance).toFixed(1) + " pts";
-  }
-  if (reversal !== null && reversal !== undefined) {
-    els.reversalPill.textContent = Number(reversal).toFixed(1) + " %";
-  }
-}
-
-// ────────────────────────────────────────────────
-// LISTENERS
-// ────────────────────────────────────────────────
+// Login/Signup
 els.loginBtn.addEventListener("click", handleLogin);
 els.signupBtn.addEventListener("click", handleSignup);
-els.logoutBtn.addEventListener("click", logout);
+els.logoutBtn.addEventListener("click", clearSession);
+els.loginTopBtn.addEventListener("click", () => {
+  // Focus on login inputs when top login button is clicked
+  els.userIdInput.focus();
+});
+
+// Quiz
 els.loadQuizBtn.addEventListener("click", loadQuiz);
 els.submitQuizBtn.addEventListener("click", submitQuiz);
+
+// Redeem
 els.redeemCodeBtn.addEventListener("click", redeemBonusCode);
 
+// Quick Actions
+els.redeemBtn.addEventListener("click", () => {
+  showPanel('redeemPanel');
+  els.bonusCodeInput.value = '';
+  els.redeemResult.innerHTML = '';
+});
+
+els.cashoutBtn.addEventListener("click", () => {
+  showPanel('cashoutPanel');
+  els.cashoutResult.innerHTML = '';
+  loadCashoutOptions();
+});
+
+els.historyBtn.addEventListener("click", () => {
+  showPanel('historyPanel');
+  els.historyContent.innerHTML = '<em>History feature coming soon...</em>';
+});
+
+// Enter key listeners
 els.userIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
 els.passIdInput.onkeypress = e => { if (e.key === "Enter") handleLogin(); };
 els.quizIdInput.onkeypress = e => { if (e.key === "Enter") loadQuiz(); };
 els.bonusCodeInput.onkeypress = e => { if (e.key === "Enter") redeemBonusCode(); };
 
-document.addEventListener("keypress", e => {
-  if (e.key === "Enter" && e.target.id?.startsWith("ans")) submitQuiz();
-});
-
-$("hamburger").addEventListener("click", () => {
-  $("appShell").classList.toggle("left-panel-collapsed");
+// Hamburger menu for mobile
+els.hamburger.addEventListener("click", () => {
+  els.appShell.classList.toggle("left-panel-collapsed");
 });
 
 // Initialize
-updateBalanceDisplay(0, 0);
+initSession();
 </script>
 </body>
 </html>
