@@ -258,8 +258,8 @@
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbziffUlLgUP8jbifYKkXxHcw47VIbaYUC28JfG8L62cffMeVEZkIda5oSmup2hjibhc/exec";
 
 // State
-let currentUser     = null;  // The userId string (e.g., "m123")
-let currentUserId   = null;  // The spreadsheet row ID
+let currentUser     = null;
+let currentUserId   = null;
 let currentQuiz     = null;
 
 // DOM cache
@@ -287,7 +287,6 @@ const els = {
   quizResult:        $("quizResult"),
   cashoutOptions:    $("cashoutOptions"),
   userIdInput:       $("userIdInput"),
-  userIdInput:       $("userIdInput"),
   passIdInput:       $("passIdInput"),
   quizIdInput:       $("quizIdInput"),
   bonusCodeInput:    $("bonusCodeInput")
@@ -308,7 +307,7 @@ async function apiCall(action, data = {}) {
   }
 
   try {
-    // Build URL-encoded string manually
+    // Build URL-encoded string
     const params = { action, ...data };
     const bodyParts = [];
     for (const key in params) {
@@ -316,21 +315,21 @@ async function apiCall(action, data = {}) {
     }
     const bodyString = bodyParts.join('&');
     
+    console.log(`Calling API: ${action}`, data);
+    
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: bodyString,
       redirect: 'follow'
     });
     
     const text = await response.text();
-    console.log('Response text:', text);
+    console.log('Raw response:', text);
     
-    // Try to parse as JSON
     try {
       const result = JSON.parse(text);
+      console.log('Parsed response:', result);
       return result;
     } catch (parseErr) {
       console.error('JSON parse error:', parseErr, 'Text:', text);
@@ -340,7 +339,7 @@ async function apiCall(action, data = {}) {
     
   } catch (err) {
     console.error(`${action} failed:`, err);
-    showToast(`Connection failed. Check: 1) Apps Script URL is correct, 2) Script is deployed as web app, 3) Access set to "Anyone"`, "error", 6000);
+    showToast(`Connection failed: ${err.message}`, "error", 6000);
     return { success: false, error: err.message };
   }
 }
@@ -363,8 +362,8 @@ async function handleLogin() {
 
   if (!res.success) return showToast(res.error || "Login failed");
 
-  currentUser   = res.user.userId;  // Store the userId string
-  currentUserId = res.user.id;      // Store the row ID
+  currentUser   = res.user.userId;
+  currentUserId = res.user.id;
 
   els.titleUser.textContent = currentUser;
   els.loginStatus.textContent = "Logged in";
@@ -473,13 +472,10 @@ async function loadQuiz() {
     i++;
   }
 
-  els.rewardNameLabel.textContent   = currentQuiz.rewardName   || "—";
-  els.rewardAmountLabel.textContent = Number(currentQuiz.rewardAmount || 0).toFixed(1) + " pts";
-
   els.quizPanel.classList.remove("hidden");
   els.rewardPanel.classList.remove("hidden");
   els.cashoutPanel.classList.remove("hidden");
-  showToast("Quiz loaded", "success");
+  showToast("Quiz loaded!", "success");
 }
 
 async function submitQuiz() {
@@ -497,7 +493,7 @@ async function submitQuiz() {
   }
 
   const res = await apiCall("submitQuiz", {
-    userId: currentUser,  // Send the userId string
+    userId: currentUser,
     quizId: currentQuiz.quizId || els.quizIdInput.value.trim(),
     answers: JSON.stringify(answers)
   });
@@ -512,6 +508,7 @@ async function submitQuiz() {
   els.quizResult.innerHTML = `
     <strong>Result:</strong><br>
     ${res.message || "Completed"}<br>
+    Correct: ${res.correct || 0}/${res.totalQuestions || 0}<br>
     Earned: <b>${Number(res.earned || 0).toFixed(1)} pts</b><br>
     New balance: <b>${Number(res.newBalance || 0).toFixed(1)} pts</b>
   `;
@@ -536,7 +533,7 @@ async function redeemBonusCode() {
   els.redeemCodeBtn.textContent = "Redeeming…";
   
   const res = await apiCall("redeemCode", { 
-    userId: currentUser,  // Send the userId string (e.g., "m123")
+    userId: currentUser,
     code: code 
   });
   
@@ -549,36 +546,6 @@ async function redeemBonusCode() {
   
   showToast(`Success! +${res.amount} pts`, "success", 4000);
   els.bonusCodeInput.value = "";
-}
-
-async function redeemReward() {
-  if (!currentQuiz) return showToast("No quiz loaded");
-  if (!currentUser) return showToast("Please login first");
-
-  const cost = Number(currentQuiz.rewardAmount || 0);
-  const have = Number(els.balancePill.textContent.replace(/[^0-9.]/g,"")) || 0;
-
-  if (have < cost) return showToast(`Need ${cost} pts – have ${have.toFixed(1)}`);
-
-  els.redeemBtn.disabled = true; 
-  els.redeemBtn.textContent = "Processing…";
-  
-  const res = await apiCall("redeemReward", {
-    userId: currentUser,  // Send the userId string
-    quizId: currentQuiz.quizId || els.quizIdInput.value.trim(),
-    rewardName: currentQuiz.rewardName || "Reward"
-  });
-  
-  els.redeemBtn.disabled = false; 
-  els.redeemBtn.textContent = "Redeem Reward";
-
-  if (!res.success) return showToast(res.error || "Redemption failed");
-
-  updateBalanceDisplay(res.newBalance, null);
-  
-  els.rewardInfoBox.textContent = res.message || "Reward redeemed!";
-  els.rewardInfoBox.classList.remove("hidden");
-  showToast("Reward redeemed!", "success");
 }
 
 // ────────────────────────────────────────────────
