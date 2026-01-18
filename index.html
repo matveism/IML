@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <title>Injector UI</title>
 
-  <!-- Bootstrap 3 -->
   <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
   <script src="//ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
     html, body {
@@ -15,8 +16,6 @@
       margin: 0;
       font-family: Tahoma, Segoe UI, sans-serif;
       color: #fff;
-
-      /* Modern SaaS Pattern Background */
       background: #1f4e8c;
       background-image:
         linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.00) 60%),
@@ -86,7 +85,6 @@
       background-color: #1f4e8c;
     }
 
-    /* PROMO BAR */
     .promo-bar {
       width: 100%;
       background: #2a5fa3;
@@ -98,6 +96,126 @@
       letter-spacing: 0.5px;
       border-bottom: 1px solid rgba(255,255,255,0.2);
     }
+
+    .status-bar {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      padding: 10px 0;
+      background: rgba(0,0,0,0.15);
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .status-pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #fff;
+      min-width: 110px;
+      text-align: center;
+    }
+
+    .status-balance {
+      background: #28c76f;
+    }
+
+    .status-reversal {
+      background: #ff4d4d;
+    }
+
+    .quiz-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      padding: 20px 10px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .quiz-card {
+      background-color: #2a5fa3;
+      border-radius: 8px;
+      width: 100%;
+      margin: 10px;
+      padding: 12px 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    .quiz-title {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .quiz-question {
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .quiz-input {
+      width: 100%;
+      margin-bottom: 8px;
+      color: #000;
+    }
+
+    .quiz-button {
+      background-color: #ffffff;
+      color: #1f4e8c;
+      font-weight: bold;
+      border: none;
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 4px;
+    }
+
+    .login-panel {
+      max-width: 320px;
+      margin: 15px auto 0;
+      background: rgba(0,0,0,0.2);
+      padding: 10px 12px;
+      border-radius: 6px;
+    }
+
+    .redeem-panel {
+      max-width: 320px;
+      margin: 10px auto 20px;
+      background: rgba(0,0,0,0.2);
+      padding: 10px 12px;
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .popup-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .popup-box {
+      background: #2a5fa3;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 300px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .popup-box h4 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    .popup-close {
+      margin-top: 10px;
+    }
   </style>
 </head>
 
@@ -105,7 +223,6 @@
 
   <nav class="navbar navbar-default modern-nav">
     <div class="container-fluid">
-
       <div class="navbar-header">
         <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#nav-collapse">
           <span class="icon-bar"></span>
@@ -127,14 +244,193 @@
           <li><a href="#">FAQ</a></li>
         </ul>
       </div>
-
     </div>
   </nav>
 
-  <!-- PROMOTIONAL BAR -->
   <div class="promo-bar">
     Welcome to IML!
   </div>
+
+  <div class="status-bar">
+    <div class="status-pill status-balance">
+      Balance: 0
+    </div>
+    <div class="status-pill status-reversal">
+      Reversal: 0%
+    </div>
+  </div>
+
+  <div class="login-panel">
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="loginUser" class="form-control input-sm" value="demo">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="loginPass" class="form-control input-sm" value="demo">
+    </div>
+    <button id="loginBtn" class="btn btn-xs btn-default">Login</button>
+    <span id="loginStatus" style="margin-left:8px;font-size:12px;"></span>
+  </div>
+
+  <div class="quiz-container">
+
+    <div class="quiz-card">
+      <div class="quiz-title">Quick Quiz (3 Qs)</div>
+
+      <div class="quiz-question">Q1: How many zeros are here: 0000?</div>
+      <input type="number" id="q1" class="form-control input-sm quiz-input">
+
+      <div class="quiz-question">Q2: How many zeros are here: 000?</div>
+      <input type="number" id="q2" class="form-control input-sm quiz-input">
+
+      <div class="quiz-question">Q3: How many zeros are here: 000?</div>
+      <input type="number" id="q3" class="form-control input-sm quiz-input">
+
+      <button id="submitQuiz" class="quiz-button">Submit quiz</button>
+      <div id="quizResult" style="margin-top:8px;font-size:12px;"></div>
+    </div>
+
+  </div>
+
+  <div class="redeem-panel">
+    <div style="margin-bottom:6px;">Amazon Gift Card — Cost: <strong>100</strong> pts</div>
+    <button id="redeemBtn" class="btn btn-xs btn-warning">Redeem Amazon</button>
+    <div id="redeemStatus" style="margin-top:6px;font-size:12px;"></div>
+  </div>
+
+  <div class="popup-overlay" id="rewardPopup">
+    <div class="popup-box">
+      <h4>Reward Redeemed</h4>
+      <div id="rewardDetails"></div>
+      <button class="btn btn-xs btn-default popup-close" onclick="$('#rewardPopup').hide();">Close</button>
+    </div>
+  </div>
+
+  <script>
+    let currentUser = null;
+
+    function apiLogin(user, pass) {
+      return $.post("api.php", {
+        action: "login",
+        user: user,
+        pass: pass
+      });
+    }
+
+    function apiUpdateQuiz(user, correct, total) {
+      let rewardAmount = 10;
+      let earned = (correct / total) * rewardAmount;
+
+      return $.post("api.php", {
+        action: "updateQuiz",
+        user: user,
+        correct: correct,
+        total: total,
+        earned: earned
+      });
+    }
+
+    function apiRedeem(user, cost) {
+      return $.post("api.php", {
+        action: "redeem",
+        user: user,
+        cost: cost
+      });
+    }
+
+    function updateStatusBar(balance, reversal) {
+      $(".status-balance").text("Balance: " + balance);
+      $(".status-reversal").text("Reversal: " + reversal + "%");
+    }
+
+    $("#loginBtn").on("click", function() {
+      let u = $("#loginUser").val().trim();
+      let p = $("#loginPass").val().trim();
+
+      $("#loginStatus").text("Logging in...");
+
+      apiLogin(u, p).done(function(res) {
+        if (typeof res === "string") res = JSON.parse(res);
+        if (res.success) {
+          currentUser = res.UserID;
+          $("#loginStatus").text("Logged in as " + currentUser);
+          updateStatusBar(res.Balance, res.Reversal);
+        } else {
+          $("#loginStatus").text("Login failed");
+        }
+      }).fail(function() {
+        $("#loginStatus").text("Error contacting server");
+      });
+    });
+
+    $("#submitQuiz").on("click", function() {
+      if (!currentUser) {
+        $("#quizResult").text("Please login first.");
+        return;
+      }
+
+      let a1 = parseInt($("#q1").val(), 10);
+      let a2 = parseInt($("#q2").val(), 10);
+      let a3 = parseInt($("#q3").val(), 10);
+
+      let correctAnswers = [4, 3, 3];
+      let userAnswers = [a1, a2, a3];
+
+      let correct = 0;
+      for (let i = 0; i < correctAnswers.length; i++) {
+        if (userAnswers[i] === correctAnswers[i]) correct++;
+      }
+
+      let total = correctAnswers.length;
+      let reversal = (correct / total) * 100;
+      let earned = (correct / total) * 10;
+
+      $("#quizResult").text(
+        "You got " + correct + " / " + total +
+        " correct. Earned: " + earned.toFixed(2) +
+        " pts. Reversal: " + reversal.toFixed(2) + "%"
+      );
+
+      apiUpdateQuiz(currentUser, correct, total).done(function(res) {
+        if (typeof res === "string") res = JSON.parse(res);
+        if (res.success) {
+          updateStatusBar(res.Balance, res.Reversal);
+        }
+      });
+    });
+
+    $("#redeemBtn").on("click", function() {
+      if (!currentUser) {
+        $("#redeemStatus").text("Please login first.");
+        return;
+      }
+
+      let cost = 100;
+
+      $("#redeemStatus").text("Checking balance...");
+
+      apiRedeem(currentUser, cost).done(function(res) {
+        if (typeof res === "string") res = JSON.parse(res);
+        if (!res.success) {
+          $("#redeemStatus").text(res.error || "Redeem failed");
+          return;
+        }
+
+        updateStatusBar(res.newBalance, $(".status-reversal").text().replace("Reversal: ","").replace("%",""));
+
+        $("#redeemStatus").text("Redeemed successfully!");
+        $("#rewardDetails").html(
+          "<div>Reward: Amazon Gift Card</div>" +
+          "<div>Cost: " + cost + " pts</div>" +
+          "<div>Code: <strong>" + res.rewardCode + "</strong></div>"
+        );
+        $("#rewardPopup").css("display","flex");
+      }).fail(function() {
+        $("#redeemStatus").text("Error contacting server");
+      });
+    });
+  </script>
 
 </body>
 </html>
