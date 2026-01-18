@@ -156,7 +156,7 @@
     border-radius: 2px;
     font-weight: bold;
   }
-  .verification-instructions {
+  .last-char-instruction {
     font-size: 11px;
     color: #800000;
     margin-bottom: 8px;
@@ -165,51 +165,28 @@
     border: 1px dashed #ff6666;
     text-align: center;
   }
-  .word-blur {
-    font-size: 12px;
-    font-weight: bold;
-    color: #333;
-    margin: 8px 0;
-    padding: 6px;
-    background: #f8f8f8;
-    border: 1px dashed #999;
-    text-align: center;
-    letter-spacing: 1px;
-    position: relative;
-    overflow: hidden;
-  }
-  .word-blur::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, 
-        transparent 0%, 
-        rgba(255,255,255,0.8) 50%, 
-        transparent 100%);
-    animation: shimmer 2s infinite;
-  }
-  @keyframes shimmer {
-    0% { left: -100%; }
-    100% { left: 100%; }
-  }
-  .word-inputs {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
+  .char-input-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-top: 8px;
   }
-  .word-input {
+  .char-input-label {
+    font-size: 11px;
+    font-weight: bold;
+    color: #333;
+    white-space: nowrap;
+  }
+  .char-input {
     padding: 4px;
     border: 1px solid #808080;
     background: white;
     text-align: center;
     font-size: 11px;
     font-weight: bold;
+    width: 40px;
   }
-  .word-input:focus {
+  .char-input:focus {
     border-color: #0a246a;
     outline: none;
     background: #f0f8ff;
@@ -248,7 +225,8 @@
     .left-panel-collapsed .left-panel { display: none; }
     .toast { left: 50%; right: auto; transform: translateX(-50%) translateY(12px); }
     .toast.show { transform: translateX(-50%) translateY(0); }
-    .word-inputs { grid-template-columns: 1fr; }
+    .char-input-container { flex-direction: column; align-items: flex-start; }
+    .char-input { width: 100%; }
   }
 </style>
 </head>
@@ -281,7 +259,7 @@
         <span id="balancePill" class="pill pill-balance">0.0 pts</span>
         <span class="status-label">Reversal:</span>
         <span id="reversalPill" class="pill pill-reversal">0.0 %</span>
-        <span class="pill pill-warning" id="cheatStatus" style="display:none;">🔒 Anti-Cheat</span>
+        <span class="pill pill-warning" id="cheatStatus" style="display:none;">🔒 Last Char Check</span>
       </div>
     </div>
 
@@ -313,7 +291,7 @@
           <button id="loadQuizBtn" class="btn-primary">Load Quiz</button>
           <div class="mini-note">Questions loaded from Google Sheet</div>
           <div class="mini-note" style="color:#b00000; margin-top:6px;">
-            <strong>⚠ Anti-Cheat Active:</strong> Must enter verification words
+            <strong>⚠ Anti-Cheat Active:</strong> Must enter last character of each question
           </div>
         </div>
         
@@ -343,7 +321,7 @@
               <li>Track your progress</li>
             </ul>
             <p style="margin-top: 10px; font-size: 10px; color: #444;">
-              <strong>Note:</strong> Anti-cheat system is active. All quiz submissions require verification.
+              <strong>Note:</strong> Anti-cheat system is active. Must enter last character of each question.
             </p>
           </div>
         </div>
@@ -380,7 +358,7 @@
     </div>
 
     <div class="footer-bar">
-      Reversal % = (1 − (Earned / Total possible)) × 100 • Anti-Cheat: All 3 verification words must match to earn points
+      Reversal % = (1 − (Earned / Total possible)) × 100 • Anti-Cheat: Must enter last character (letter/number/symbol) of each question
     </div>
   </div>
 </div>
@@ -396,7 +374,7 @@ let currentUser = null;
 let currentQuiz = null;
 let userBalance = 0;
 let userReversal = 0;
-let verificationWords = {};
+let lastCharacters = {};
 
 // DOM cache
 const $ = id => document.getElementById(id);
@@ -543,7 +521,7 @@ function clearSession() {
   currentUser = null;
   userBalance = 0;
   userReversal = 0;
-  verificationWords = {};
+  lastCharacters = {};
   
   updateUserDisplay('Guest', 0, 0);
   showLoggedOutView();
@@ -641,6 +619,7 @@ function showPanel(panelId) {
   
   // Show cheat status for quiz panel
   if (panelId === 'quizPanel') {
+    els.cheatStatus.textContent = "🔒 Last Char Check";
     els.cheatStatus.style.display = 'inline-block';
   } else {
     els.cheatStatus.style.display = 'none';
@@ -705,37 +684,20 @@ async function handleSignup() {
 }
 
 // ────────────────────────────────────────────────
-// ANTI-CHEAT FUNCTIONS
+// ANTI-CHEAT FUNCTIONS - Last Character System
 // ────────────────────────────────────────────────
-function extractRandomWords(text, count = 3) {
-  // Remove special characters and split into words
-  const words = text.toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter(word => word.length > 3) // Only words longer than 3 characters
-    .filter((word, index, self) => self.indexOf(word) === index); // Remove duplicates
-  
-  // Shuffle and pick random words
-  const shuffled = [...words].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, Math.min(count, words.length));
+function getLastCharacter(text) {
+  // Get the last non-whitespace character
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return '';
+  return trimmed.charAt(trimmed.length - 1);
 }
 
-function checkVerificationWords(questionNum, userWords) {
-  const correctWords = verificationWords[`q${questionNum}`] || [];
+function checkLastCharacters(questionNum, userChar) {
+  const correctChar = lastCharacters[`q${questionNum}`] || '';
   
-  // All 3 words must match exactly
-  if (correctWords.length !== 3 || userWords.length !== 3) {
-    return false;
-  }
-  
-  // Check each word (case insensitive)
-  for (let i = 0; i < 3; i++) {
-    if (userWords[i].toLowerCase().trim() !== correctWords[i].toLowerCase()) {
-      return false;
-    }
-  }
-  
-  return true;
+  // Compare case-sensitive (since it could be a letter, number, or symbol)
+  return userChar.trim() === correctChar;
 }
 
 // ────────────────────────────────────────────────
@@ -756,7 +718,7 @@ async function loadQuiz() {
   if (!res.success) return showToast(res.error || "Quiz not found");
 
   currentQuiz = res.quiz;
-  verificationWords = {};
+  lastCharacters = {};
 
   els.quizMeta.textContent = `Reward: ${currentQuiz.rewardName || "?"} • ${currentQuiz.rewardAmount || 0} pts`;
   els.quizQuestions.innerHTML = "";
@@ -767,9 +729,9 @@ async function loadQuiz() {
   while (currentQuiz[`q${i}`]) {
     const txt = currentQuiz[`q${i}`];
     
-    // Extract 3 random words for anti-cheat
-    const randomWords = extractRandomWords(txt, 3);
-    verificationWords[`q${i}`] = randomWords;
+    // Get last character for anti-cheat
+    const lastChar = getLastCharacter(txt);
+    lastCharacters[`q${i}`] = lastChar;
     
     const div = document.createElement("div");
     div.className = "quiz-question";
@@ -780,17 +742,15 @@ async function loadQuiz() {
       </div>
       
       <div class="cheat-check">
-        <div class="verification-instructions">
-          ANTI-CHEAT: Enter these 3 words exactly as shown:
+        <div class="last-char-instruction">
+          ANTI-CHEAT: Enter the last character (letter, number, or symbol) of the question above
         </div>
-        <div class="word-blur">${randomWords.join(' • ')}</div>
-        <div class="word-inputs">
-          <input type="text" class="word-input" id="word1_${i}" placeholder="Word 1">
-          <input type="text" class="word-input" id="word2_${i}" placeholder="Word 2">
-          <input type="text" class="word-input" id="word3_${i}" placeholder="Word 3">
+        <div class="char-input-container">
+          <div class="char-input-label">Last Character:</div>
+          <input type="text" class="char-input" id="lastchar${i}" placeholder="?" maxlength="1">
         </div>
         <div style="font-size:10px; color:#666; text-align:center; margin-top:4px;">
-          All 3 words must match exactly to earn points
+          Must be exact. If wrong, quiz earns 0 points and reversal increases.
         </div>
       </div>
     `;
@@ -799,7 +759,7 @@ async function loadQuiz() {
   }
 
   showPanel('quizPanel');
-  showToast("Quiz loaded with anti-cheat protection", "success");
+  showToast("Quiz loaded with last character verification", "success");
 }
 
 async function submitQuiz() {
@@ -809,46 +769,42 @@ async function submitQuiz() {
   els.submitQuizBtn.disabled = true; 
   els.submitQuizBtn.textContent = "Submitting…";
 
-  // Collect answers and verification words
+  // Collect answers and last characters
   const answers = {};
-  const verifications = {};
-  let allVerificationsPassed = true;
+  const lastChars = {};
+  let allLastCharsCorrect = true;
   let i = 1;
   
   while ($(`ans${i}`)) {
     // Main answer
     answers[`a${i}`] = $(`ans${i}`).value.trim();
     
-    // Verification words
-    const word1 = $(`word1_${i}`)?.value.trim() || '';
-    const word2 = $(`word2_${i}`)?.value.trim() || '';
-    const word3 = $(`word3_${i}`)?.value.trim() || '';
-    const userWords = [word1, word2, word3];
+    // Last character verification
+    const userChar = $(`lastchar${i}`)?.value.trim() || '';
+    const isCorrect = checkLastCharacters(i, userChar);
+    lastChars[`l${i}`] = isCorrect;
     
-    // Check verification
-    const verificationPassed = checkVerificationWords(i, userWords);
-    verifications[`v${i}`] = verificationPassed;
-    
-    if (!verificationPassed) {
-      allVerificationsPassed = false;
+    if (!isCorrect) {
+      allLastCharsCorrect = false;
     }
     
     i++;
   }
 
-  // If any verification failed, show error
-  if (!allVerificationsPassed) {
-    showToast('ANTI-CHEAT FAILED: All 3 verification words must match exactly for each question!', 'error', 5000);
-    els.submitQuizBtn.disabled = false;
-    els.submitQuizBtn.textContent = "Submit Answers";
-    return;
+  // If any last character is wrong, prepare for 0 points submission
+  if (!allLastCharsCorrect) {
+    showToast('ANTI-CHEAT FAILED: One or more last characters are incorrect! Quiz will earn 0 points.', 'error', 5000);
+    
+    // Continue with submission but flag for server to give 0 points
+    // We'll send a flag to indicate last char verification failed
   }
 
   const res = await apiCall("submitQuiz", {
     userId: currentUser,
     quizId: currentQuiz.quizId || els.quizIdInput.value.trim(),
     answers: JSON.stringify(answers),
-    verifications: JSON.stringify(verifications)
+    lastChars: JSON.stringify(lastChars), // Send verification results
+    lastCharAllCorrect: allLastCharsCorrect // Flag for server
   });
 
   els.submitQuizBtn.textContent = "Submit Answers";
@@ -859,31 +815,54 @@ async function submitQuiz() {
   }
 
   // Show result
-  els.quizResult.innerHTML = `
-    <div style="background:#f0fff0; border:1px solid #00aa00; padding:8px; border-radius:3px;">
-      <strong>✅ Quiz Submitted Successfully!</strong><br>
-      <div style="margin-top:4px;">
-        <span style="color:#00aa00;">✓ Anti-cheat verification PASSED</span><br>
-        Correct: <b>${res.correct || 0}/${res.totalQuestions || 0}</b><br>
-        Earned: <b>${Number(res.earned || 0).toFixed(1)} pts</b><br>
-        New reversal: <b>${Number(res.newReversal || 0).toFixed(1)}%</b><br>
-        New balance: <b>${Number(res.newBalance || 0).toFixed(1)} pts</b>
+  let resultHtml = '';
+  if (!allLastCharsCorrect) {
+    resultHtml = `
+      <div style="background:#fff0f0; border:1px solid #b00000; padding:8px; border-radius:3px;">
+        <strong>❌ Quiz Failed Anti-Cheat!</strong><br>
+        <div style="margin-top:4px;">
+          <span style="color:#b00000;">✗ Last character verification FAILED</span><br>
+          Earned: <b>0/${res.totalReward || 250} pts</b><br>
+          New reversal: <b>${Number(res.newReversal || 0).toFixed(1)}%</b><br>
+          New balance: <b>${Number(res.newBalance || userBalance).toFixed(1)} pts</b><br>
+          <div style="margin-top:6px; font-size:10px;">
+            One or more last characters were incorrect. Entire quiz earns 0 points.
+          </div>
+        </div>
       </div>
-    </div>
+    `;
+  } else {
+    resultHtml = `
+      <div style="background:#f0fff0; border:1px solid #00aa00; padding:8px; border-radius:3px;">
+        <strong>✅ Quiz Submitted Successfully!</strong><br>
+        <div style="margin-top:4px;">
+          <span style="color:#00aa00;">✓ Last character verification PASSED</span><br>
+          Correct: <b>${res.correct || 0}/${res.totalQuestions || 0}</b><br>
+          Earned: <b>${Number(res.earned || 0).toFixed(1)}/${res.totalReward || 250} pts</b><br>
+          New reversal: <b>${Number(res.newReversal || 0).toFixed(1)}%</b><br>
+          New balance: <b>${Number(res.newBalance || 0).toFixed(1)} pts</b>
+        </div>
+      </div>
+    `;
+  }
+
+  resultHtml += `
     <div style="margin-top:8px; text-align:center;">
       <button id="backToQuizBtn" class="btn-primary">Take Another Quiz</button>
     </div>
   `;
 
+  els.quizResult.innerHTML = resultHtml;
+
   // Update user data
-  userBalance = parseFloat(res.newBalance);
-  userReversal = parseFloat(res.newReversal);
+  userBalance = parseFloat(res.newBalance || userBalance);
+  userReversal = parseFloat(res.newReversal || userReversal);
   saveSession(currentUser, userBalance, userReversal);
   updateUserDisplay(currentUser, userBalance, userReversal);
 
   // Reset quiz state
   currentQuiz = null;
-  verificationWords = {};
+  lastCharacters = {};
   els.quizIdInput.value = "";
   
   // Add back button listener
