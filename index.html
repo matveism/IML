@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Injector UI</title>
+
+  <!-- Bootstrap 3 -->
+  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Tahoma, Segoe UI, sans-serif;
+      color: #fff;
+
+      /* Modern SaaS Pattern Background */
+      background: #1f4e8c;
+      background-image:
+        linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.00) 60%),
+        linear-gradient(45deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.00) 70%),
+        repeating-linear-gradient(
+          0deg,
+          rgba(255,255,255,0.05) 0px,
+          rgba(255,255,255,0.05) 1px,
+          rgba(255,255,255,0.00) 1px,
+          rgba(255,255,255,0.00) 12px
+        );
+      background-size: cover;
+      background-attachment: fixed;
+    }
+
+    .navbar {
+      margin-bottom: 0 !important;
+      border-radius: 0;
+      border: none;
+      background-color: #1f4e8c;
+    }
+
+    .modern-nav {
+      background-color: #1f4e8c;
+      padding: 6px 0;
+    }
+
+    .modern-brand {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px !important;
+    }
+
+    .brand-text {
+      font-size: 16px;
+      font-weight: bold;
+      color: #ffffff;
+    }
+
+    .modern-menu > li {
+      display: inline-block;
+      margin: 0 2px;
+    }
+
+    .modern-menu > li > a {
+      background-color: #1f4e8c;
+      color: #ffffff !important;
+      font-weight: bold;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 0;
+      text-align: center;
+    }
+
+    .modern-menu > li > a:hover,
+    .modern-menu > li > a:focus {
+      background-color: #2a5fa3;
+      color: #ffffff !important;
+    }
+
+    .navbar-toggle .icon-bar {
+      background-color: #ffffff;
+    }
+
+    #nav-collapse {
+      background-color: #1f4e8c;
+    }
+
+    /* PROMO BAR */
+    .promo-bar {
+      width: 100%;
+      background: #2a5fa3;
+      color: #ffffff;
+      text-align: center;
+      padding: 8px 0;
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav class="navbar navbar-default modern-nav">
+    <div class="container-fluid">
+
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+
+        <a class="navbar-brand modern-brand" href="#">
+          <span class="brand-text">I M L</span>
+        </a>
+      </div>
+
+      <div class="collapse navbar-collapse" id="nav-collapse">
+        <ul class="nav navbar-nav navbar-right modern-menu">
+          <li><a href="#">Earn</a></li>
+          <li><a href="#">Redeem</a></li>
+          <li><a href="#">Win</a></li>
+          <li><a href="#">Forums</a></li>
+          <li><a href="#">FAQ</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </nav>
+
+  <!-- PROMOTIONAL BAR -->
+  <div class="promo-bar">
+    Welcome to IML!
+  </div>
+
+</body>
+</html>
